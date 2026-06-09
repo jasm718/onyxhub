@@ -2,16 +2,9 @@
 
 import * as React from "react"
 import { 
-  IconDotsVertical,
-  IconEdit,
-  IconKey,
   IconPlus,
   IconSearch,
-  IconTrash,
-  IconUser,
   IconUsers,
-  IconShield,
-  IconMail,
   IconClock
 } from "@tabler/icons-react"
 
@@ -20,15 +13,6 @@ import { SiteHeader } from '@/components/site-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -41,13 +25,6 @@ import {
   SidebarInset,
   SidebarProvider,
 } from '@/components/ui/sidebar'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 
 const users = [
   {
@@ -57,7 +34,7 @@ const users = [
     role: "user",
     status: "active",
     department: "研发部",
-    applications: 8,
+    applications: ["Word", "AutoCAD"],
     lastLogin: "2024-01-30 14:32",
   },
   {
@@ -67,7 +44,7 @@ const users = [
     role: "user",
     status: "active",
     department: "设计部",
-    applications: 5,
+    applications: ["SolidWorks"],
     lastLogin: "2024-01-30 11:20",
   },
   {
@@ -77,7 +54,7 @@ const users = [
     role: "admin",
     status: "active",
     department: "IT部",
-    applications: 15,
+    applications: ["SolidWorks", "AutoCAD", "Word"],
     lastLogin: "2024-01-30 16:45",
   },
   {
@@ -87,7 +64,7 @@ const users = [
     role: "user",
     status: "inactive",
     department: "财务部",
-    applications: 3,
+    applications: ["Word"],
     lastLogin: "2024-01-25 09:15",
   },
   {
@@ -97,7 +74,7 @@ const users = [
     role: "user",
     status: "active",
     department: "研发部",
-    applications: 12,
+    applications: ["SolidWorks", "AutoCAD"],
     lastLogin: "2024-01-30 13:50",
   },
   {
@@ -107,7 +84,7 @@ const users = [
     role: "user",
     status: "pending",
     department: "市场部",
-    applications: 0,
+    applications: ["AutoCAD"],
     lastLogin: "-",
   },
   {
@@ -117,7 +94,7 @@ const users = [
     role: "user",
     status: "active",
     department: "运营部",
-    applications: 6,
+    applications: ["SolidWorks", "Word"],
     lastLogin: "2024-01-29 17:30",
   },
   {
@@ -127,57 +104,19 @@ const users = [
     role: "admin",
     status: "active",
     department: "IT部",
-    applications: 20,
+    applications: ["AutoCAD", "Word"],
     lastLogin: "2024-01-30 15:00",
   },
 ]
 
-function getStatusBadge(status: string) {
-  switch (status) {
-    case "active":
-      return <Badge className="bg-primary/20 text-primary">活跃</Badge>
-    case "inactive":
-      return <Badge variant="secondary">禁用</Badge>
-    case "pending":
-      return <Badge className="bg-chart-4/20 text-chart-4">待激活</Badge>
-    default:
-      return <Badge variant="outline">{status}</Badge>
-  }
-}
-
-function getRoleBadge(role: string) {
-  switch (role) {
-    case "admin":
-      return (
-        <Badge variant="outline" className="border-chart-3/30 text-chart-3">
-          <IconShield className="mr-1 size-3" />
-          管理员
-        </Badge>
-      )
-    case "user":
-      return (
-        <Badge variant="outline">
-          <IconUser className="mr-1 size-3" />
-          用户
-        </Badge>
-      )
-    default:
-      return <Badge variant="outline">{role}</Badge>
-  }
-}
-
 export default function UsersPage() {
   const [search, setSearch] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState("all")
-  const [roleFilter, setRoleFilter] = React.useState("all")
   
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(search.toLowerCase()) ||
       user.email.toLowerCase().includes(search.toLowerCase()) ||
       user.department.toLowerCase().includes(search.toLowerCase())
-    const matchesStatus = statusFilter === "all" || user.status === statusFilter
-    const matchesRole = roleFilter === "all" || user.role === roleFilter
-    return matchesSearch && matchesStatus && matchesRole
+    return matchesSearch
   })
 
   return (
@@ -222,27 +161,6 @@ export default function UsersPage() {
                         className="pl-9"
                       />
                     </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-full sm:w-[130px]">
-                        <SelectValue placeholder="状态" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">全部状态</SelectItem>
-                        <SelectItem value="active">活跃</SelectItem>
-                        <SelectItem value="inactive">禁用</SelectItem>
-                        <SelectItem value="pending">待激活</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={roleFilter} onValueChange={setRoleFilter}>
-                      <SelectTrigger className="w-full sm:w-[130px]">
-                        <SelectValue placeholder="角色" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">全部角色</SelectItem>
-                        <SelectItem value="admin">管理员</SelectItem>
-                        <SelectItem value="user">用户</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                   
                   <div className="rounded-lg border border-border/50">
@@ -250,40 +168,19 @@ export default function UsersPage() {
                       <TableHeader>
                         <TableRow className="border-border/50 hover:bg-transparent">
                           <TableHead>用户</TableHead>
-                          <TableHead>部门</TableHead>
-                          <TableHead>角色</TableHead>
-                          <TableHead className="text-center">状态</TableHead>
                           <TableHead className="text-center">授权应用</TableHead>
                           <TableHead className="hidden md:table-cell">最后登录</TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead className="text-center">操作</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredUsers.map((user) => (
                           <TableRow key={user.id} className="border-border/50">
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <Avatar className="size-8">
-                                  <AvatarFallback className="bg-secondary text-xs">
-                                    {user.name.slice(0, 2)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="font-medium">{user.name}</div>
-                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <IconMail className="size-3" />
-                                    {user.email}
-                                  </div>
-                                </div>
-                              </div>
+                            <TableCell className="font-medium">
+                              {user.name}
                             </TableCell>
-                            <TableCell>{user.department}</TableCell>
-                            <TableCell>{getRoleBadge(user.role)}</TableCell>
                             <TableCell className="text-center">
-                              {getStatusBadge(user.status)}
-                            </TableCell>
-                            <TableCell className="text-center tabular-nums">
-                              {user.applications}
+                              {user.applications.join("、")}
                             </TableCell>
                             <TableCell className="hidden md:table-cell">
                               <span className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -292,32 +189,31 @@ export default function UsersPage() {
                               </span>
                             </TableCell>
                             <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="size-8">
-                                    <IconDotsVertical className="size-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem>
-                                    <IconEdit className="mr-2 size-4" />
-                                    编辑信息
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <IconKey className="mr-2 size-4" />
-                                    应用授权
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <IconShield className="mr-2 size-4" />
-                                    修改角色
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="text-destructive">
-                                    <IconTrash className="mr-2 size-4" />
-                                    删除用户
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              <div className="flex items-center justify-center text-sm">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                >
+                                  编辑
+                                </Button>
+                                <span className="h-4 w-px bg-border" aria-hidden="true" />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                >
+                                  应用权限
+                                </Button>
+                                <span className="h-4 w-px bg-border" aria-hidden="true" />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-destructive hover:text-destructive"
+                                >
+                                  删除
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -325,9 +221,8 @@ export default function UsersPage() {
                     </Table>
                   </div>
                   
-                  <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+                  <div className="mt-4 flex items-center text-sm text-muted-foreground">
                     <span>共 {filteredUsers.length} 个用户</span>
-                    <span>活跃用户: {filteredUsers.filter(u => u.status === "active").length}</span>
                   </div>
                 </CardContent>
               </Card>

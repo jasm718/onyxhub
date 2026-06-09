@@ -3,12 +3,9 @@
 import * as React from "react"
 import { 
   IconApps,
-  IconDotsVertical,
-  IconEdit,
+  IconCheck,
   IconPlus,
   IconSearch,
-  IconTrash,
-  IconCheck,
   IconX,
   IconUsers
 } from "@tabler/icons-react"
@@ -19,12 +16,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -191,11 +182,9 @@ export default function ApplicationsPage() {
                         <TableRow className="border-border/50 hover:bg-transparent">
                           <TableHead>应用名称</TableHead>
                           <TableHead className="hidden md:table-cell">路径</TableHead>
-                          <TableHead>类别</TableHead>
                           <TableHead className="text-center">状态</TableHead>
                           <TableHead className="text-center">授权用户</TableHead>
-                          <TableHead className="text-center">当前连接</TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead className="text-center">操作</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -204,11 +193,6 @@ export default function ApplicationsPage() {
                             <TableCell className="font-medium">{app.name}</TableCell>
                             <TableCell className="hidden max-w-[200px] truncate text-muted-foreground md:table-cell">
                               {app.path}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="font-normal">
-                                {app.category}
-                              </Badge>
                             </TableCell>
                             <TableCell className="text-center">
                               <Badge 
@@ -228,31 +212,32 @@ export default function ApplicationsPage() {
                                 {app.users}
                               </span>
                             </TableCell>
-                            <TableCell className="text-center tabular-nums">
-                              {app.connections}
-                            </TableCell>
                             <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="size-8">
-                                    <IconDotsVertical className="size-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem>
-                                    <IconEdit className="mr-2 size-4" />
-                                    编辑
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <IconUsers className="mr-2 size-4" />
-                                    用户授权
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem className="text-destructive">
-                                    <IconTrash className="mr-2 size-4" />
-                                    删除
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              <div className="flex items-center justify-center text-sm">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                >
+                                  编辑
+                                </Button>
+                                <span className="h-4 w-px bg-border" aria-hidden="true" />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                >
+                                  权限
+                                </Button>
+                                <span className="h-4 w-px bg-border" aria-hidden="true" />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-destructive hover:text-destructive"
+                                >
+                                  删除
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -260,9 +245,8 @@ export default function ApplicationsPage() {
                     </Table>
                   </div>
                   
-                  <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+                  <div className="mt-4 flex items-center text-sm text-muted-foreground">
                     <span>共 {filteredApps.length} 个应用</span>
-                    <span>当前活跃连接: {filteredApps.reduce((sum, app) => sum + app.connections, 0)}</span>
                   </div>
                 </CardContent>
               </Card>

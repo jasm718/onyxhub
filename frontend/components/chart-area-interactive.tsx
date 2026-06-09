@@ -26,9 +26,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@/components/ui/toggle-group'
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
 
 const chartData = [
   { date: "2024-01-01", connections: 45, users: 28 },
@@ -109,17 +110,17 @@ export function ChartAreaInteractive() {
           <span className="@[540px]/card:hidden">连接趋势</span>
         </CardDescription>
         <CardAction>
-          <ToggleGroup
-            type="single"
+          <Tabs
             value={timeRange}
             onValueChange={setTimeRange}
-            variant="outline"
-            className="hidden *:data-[slot=toggle-group-item]:px-4! @[767px]/card:flex"
+            className="hidden @[767px]/card:flex"
           >
-            <ToggleGroupItem value="30d">最近 30 天</ToggleGroupItem>
-            <ToggleGroupItem value="14d">最近 14 天</ToggleGroupItem>
-            <ToggleGroupItem value="7d">最近 7 天</ToggleGroupItem>
-          </ToggleGroup>
+            <TabsList className="*:data-[slot=tabs-trigger]:px-4">
+              <TabsTrigger value="30d">最近 30 天</TabsTrigger>
+              <TabsTrigger value="14d">最近 14 天</TabsTrigger>
+              <TabsTrigger value="7d">最近 7 天</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger
               className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
