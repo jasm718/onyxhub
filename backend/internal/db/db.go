@@ -1,0 +1,75 @@
+package db
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"onyxhub/backend/internal/auth"
+	"onyxhub/backend/internal/config"
+	"onyxhub/backend/internal/models"
+
+	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
+)
+
+func Open(cfg config.Config) (*gorm.DB, error) {
+	if err := os.MkdirAll(filepath.Dir(cfg.DBPath), 0755); err != nil {
+		return nil, fmt.Errorf("创建数据库目录失败: %w", err)
+	}
+
+	database, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("打开数据库失败: %w", err)
+	}
+
+	if err := database.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
+		return nil, fmt.Errorf("启用 SQLite foreign_keys 失败: %w", err)
+	}
+
+	if err := database.AutoMigrate(
+		&models.User{},
+		&models.Application{},
+		&models.UserAppAuthorization{},
+		&models.AgentStatus{},
+		&models.Session{},
+		&models.ActivityLog{},
+	); err != nil {
+		return nil, fmt.Errorf("数据库迁移失败: %w", err)
+	}
+
+	if err := ensureAdmin(database); err != nil {
+		return nil, err
+	}
+
+	return database, nil
+}
+
+func ensureAdmin(database *gorm.DB) error {
+	var existing models.User
+	err := database.Where("username = ?", "admin").First(&existing).Error
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("查询固定管理员失败: %w", err)
+	}
+
+	passwordHash, err := auth.HashPassword("123456")
+	if err != nil {
+		return fmt.Errorf("初始化固定管理员密码失败: %w", err)
+	}
+
+	admin := models.User{
+		Username:     "admin",
+		DisplayName:  "管理员",
+		PasswordHash: passwordHash,
+		Role:         models.RoleAdmin,
+		Status:       models.StatusActive,
+	}
+	if err := database.Create(&admin).Error; err != nil {
+		return fmt.Errorf("初始化固定管理员失败: %w", err)
+	}
+	return nil
+}

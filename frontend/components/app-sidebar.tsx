@@ -8,7 +8,6 @@ import {
   IconChartBar,
   IconKey,
   IconLock,
-  IconNetwork,
   IconServer,
   IconSettings,
   IconShield,
@@ -50,11 +49,6 @@ const data = {
       title: "用户管理",
       url: "/dashboard/users",
       icon: IconUsers,
-    },
-    {
-      title: "连接策略",
-      url: "/dashboard/policies",
-      icon: IconNetwork,
     },
   ],
   navSettings: [

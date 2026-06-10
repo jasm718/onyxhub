@@ -12,7 +12,6 @@ const pageTitles: Record<string, string> = {
   '/dashboard': '仪表盘',
   '/dashboard/applications': '应用管理',
   '/dashboard/users': '用户管理',
-  '/dashboard/policies': '连接策略',
   '/dashboard/settings/general': '通用设置',
   '/dashboard/settings/storage': '存储设置',
   '/dashboard/settings/security': '安全设置',

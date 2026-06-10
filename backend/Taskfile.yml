@@ -1,0 +1,49 @@
+version: "3"
+
+vars:
+  APP_NAME: onyxhub-backend
+  BIN: tmp/onyxhub-backend.exe
+
+env:
+  ONYXHUB_HTTP_ADDR: '{{.ONYXHUB_HTTP_ADDR | default ":8080"}}'
+  ONYXHUB_DB_PATH: '{{.ONYXHUB_DB_PATH | default "data/onyxhub.db"}}'
+  ONYXHUB_JWT_SECRET: '{{.ONYXHUB_JWT_SECRET | default "dev-secret-change-me"}}'
+
+tasks:
+  default:
+    desc: List available tasks.
+    cmds:
+      - task --list
+
+  dev:
+    desc: Start backend with Air auto rebuild.
+    cmds:
+      - air -c .air.toml
+
+  build:
+    desc: Build backend binary.
+    cmds:
+      - powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path ./tmp | Out-Null"
+      - go build -o {{.BIN}} ./cmd/server
+
+  run:
+    desc: Build and run backend once.
+    deps:
+      - build
+    cmds:
+      - ./{{.BIN}}
+
+  test:
+    desc: Run Go tests.
+    cmds:
+      - go test ./...
+
+  tidy:
+    desc: Tidy Go module dependencies.
+    cmds:
+      - go mod tidy
+
+  clean:
+    desc: Remove local build outputs.
+    cmds:
+      - powershell -NoProfile -Command "Remove-Item -LiteralPath ./tmp -Recurse -Force -ErrorAction SilentlyContinue"
