@@ -14,14 +14,14 @@ import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardAction,
-  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import type { Overview } from "@/lib/api"
 
-export function SectionCards() {
+export function SectionCards({ cards }: { cards: Overview["cards"] }) {
   return (
     <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       <Card className="@container/card border-border/50 bg-card/50">
@@ -31,21 +31,21 @@ export function SectionCards() {
             已发布应用
           </CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            24
+            {cards.totalApplications}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="border-primary/30 text-primary">
               <IconTrendingUp className="size-3" />
-              +3 本月
+              {cards.activeApplications} 启用
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            应用运行正常 <IconCheck className="size-4 text-primary" />
+            应用发布状态 <IconCheck className="size-4 text-primary" />
           </div>
           <div className="text-muted-foreground">
-            所有应用均可正常访问
+            当前启用 {cards.activeApplications} 个应用
           </div>
         </CardFooter>
       </Card>
@@ -57,21 +57,21 @@ export function SectionCards() {
             活跃用户
           </CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            156
+            {cards.activeUsers}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="border-chart-2/30 text-chart-2">
               <IconTrendingUp className="size-3" />
-              +12%
+              共 {cards.totalUsers}
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            用户活跃度上升 <IconArrowUpRight className="size-4 text-chart-2" />
+            启用用户统计 <IconArrowUpRight className="size-4 text-chart-2" />
           </div>
           <div className="text-muted-foreground">
-            较上月增长 18 人
+            全部用户 {cards.totalUsers} 人
           </div>
         </CardFooter>
       </Card>
@@ -83,21 +83,21 @@ export function SectionCards() {
             当前连接数
           </CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            89
+            {cards.activeSessions}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="border-chart-3/30 text-chart-3">
               <IconDeviceDesktop className="size-3" />
-              在线
+              {cards.agentOnline ? "在线" : "离线"}
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            连接稳定 <IconCheck className="size-4 text-primary" />
+            当前会话 <IconCheck className="size-4 text-primary" />
           </div>
           <div className="text-muted-foreground">
-            峰值并发 142 连接
+            agent {cards.agentOnline ? "已连接" : "未连接"}
           </div>
         </CardFooter>
       </Card>
@@ -109,21 +109,30 @@ export function SectionCards() {
             系统运行时间
           </CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            99.9%
+            {cards.agentOnline ? "在线" : "离线"}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="border-chart-4/30 text-chart-4">
-              <IconTrendingUp className="size-3" />
-              稳定
+              {cards.agentOnline ? (
+                <IconTrendingUp className="size-3" />
+              ) : (
+                <IconAlertCircle className="size-3" />
+              )}
+              Agent
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            运行 45 天 <IconCheck className="size-4 text-primary" />
+            主机控制服务 {cards.agentOnline ? "正常" : "未连接"}{" "}
+            {cards.agentOnline ? (
+              <IconCheck className="size-4 text-primary" />
+            ) : (
+              <IconAlertCircle className="size-4 text-chart-4" />
+            )}
           </div>
           <div className="text-muted-foreground">
-            上次重启: 45 天前
+            数据来自后端实时状态
           </div>
         </CardFooter>
       </Card>

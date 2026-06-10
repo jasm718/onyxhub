@@ -30,52 +30,24 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs'
-
-const chartData = [
-  { date: "2024-01-01", connections: 45, users: 28 },
-  { date: "2024-01-02", connections: 52, users: 31 },
-  { date: "2024-01-03", connections: 48, users: 29 },
-  { date: "2024-01-04", connections: 61, users: 38 },
-  { date: "2024-01-05", connections: 55, users: 35 },
-  { date: "2024-01-06", connections: 67, users: 42 },
-  { date: "2024-01-07", connections: 72, users: 45 },
-  { date: "2024-01-08", connections: 58, users: 36 },
-  { date: "2024-01-09", connections: 63, users: 40 },
-  { date: "2024-01-10", connections: 78, users: 48 },
-  { date: "2024-01-11", connections: 82, users: 52 },
-  { date: "2024-01-12", connections: 75, users: 47 },
-  { date: "2024-01-13", connections: 68, users: 43 },
-  { date: "2024-01-14", connections: 89, users: 56 },
-  { date: "2024-01-15", connections: 95, users: 61 },
-  { date: "2024-01-16", connections: 88, users: 55 },
-  { date: "2024-01-17", connections: 92, users: 58 },
-  { date: "2024-01-18", connections: 85, users: 53 },
-  { date: "2024-01-19", connections: 78, users: 49 },
-  { date: "2024-01-20", connections: 102, users: 64 },
-  { date: "2024-01-21", connections: 115, users: 72 },
-  { date: "2024-01-22", connections: 108, users: 68 },
-  { date: "2024-01-23", connections: 98, users: 62 },
-  { date: "2024-01-24", connections: 125, users: 78 },
-  { date: "2024-01-25", connections: 132, users: 82 },
-  { date: "2024-01-26", connections: 118, users: 74 },
-  { date: "2024-01-27", connections: 105, users: 66 },
-  { date: "2024-01-28", connections: 142, users: 89 },
-  { date: "2024-01-29", connections: 128, users: 80 },
-  { date: "2024-01-30", connections: 135, users: 85 },
-]
+import type { Overview } from "@/lib/api"
 
 const chartConfig = {
   connections: {
-    label: "连接数",
+    label: "开启连接",
     color: "var(--chart-1)",
   },
   users: {
-    label: "活跃用户",
+    label: "关闭连接",
     color: "var(--chart-2)",
   },
 } satisfies ChartConfig
 
-export function ChartAreaInteractive() {
+export function ChartAreaInteractive({
+  data,
+}: {
+  data: Overview["connectionTrend"]
+}) {
   const isMobile = useIsMobile()
   const [timeRange, setTimeRange] = React.useState("30d")
 
@@ -85,9 +57,20 @@ export function ChartAreaInteractive() {
     }
   }, [isMobile])
 
+  const chartData = React.useMemo(
+    () =>
+      data.map((item) => ({
+        date: item.date,
+        connections: item.opened,
+        users: item.closed,
+      })),
+    [data]
+  )
+
   const filteredData = chartData.filter((item) => {
     const date = new Date(item.date)
-    const referenceDate = new Date("2024-01-30")
+    const lastItem = chartData[chartData.length - 1]
+    const referenceDate = lastItem ? new Date(lastItem.date) : new Date()
     let daysToSubtract = 30
     if (timeRange === "14d") {
       daysToSubtract = 14

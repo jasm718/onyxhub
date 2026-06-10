@@ -16,10 +16,10 @@ type Server struct {
 	agent     *agentws.Manager
 }
 
-func NewRouter(svc *service.Service, jwtSecret string, agent *agentws.Manager) *gin.Engine {
+func NewRouter(svc *service.Service, jwtSecret string, agent *agentws.Manager, corsAllowedOrigins []string) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
+	router.Use(gin.Logger(), gin.Recovery(), corsMiddleware(corsAllowedOrigins))
 
 	server := &Server{
 		service:   svc,

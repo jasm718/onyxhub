@@ -14,7 +14,6 @@ type CreateApplicationInput struct {
 	Path       string `json:"path"`
 	Arguments  string `json:"arguments"`
 	WorkingDir string `json:"workingDir"`
-	Category   string `json:"category"`
 	Status     string `json:"status"`
 }
 
@@ -24,7 +23,6 @@ type UpdateApplicationInput struct {
 	Path       *string `json:"path"`
 	Arguments  *string `json:"arguments"`
 	WorkingDir *string `json:"workingDir"`
-	Category   *string `json:"category"`
 	Status     *string `json:"status"`
 }
 
@@ -64,7 +62,6 @@ func (s *Service) CreateApplication(actorUserID string, input CreateApplicationI
 		Path:       path,
 		Arguments:  trim(input.Arguments),
 		WorkingDir: trim(input.WorkingDir),
-		Category:   trim(input.Category),
 		Status:     status,
 	}
 
@@ -98,7 +95,6 @@ func (s *Service) UpdateApplication(actorUserID string, input UpdateApplicationI
 	nextPath := application.Path
 	nextArguments := application.Arguments
 	nextWorkingDir := application.WorkingDir
-	nextCategory := application.Category
 	nextStatus := application.Status
 
 	if input.Name != nil {
@@ -118,9 +114,6 @@ func (s *Service) UpdateApplication(actorUserID string, input UpdateApplicationI
 	}
 	if input.WorkingDir != nil {
 		nextWorkingDir = trim(*input.WorkingDir)
-	}
-	if input.Category != nil {
-		nextCategory = trim(*input.Category)
 	}
 	if input.Status != nil {
 		nextStatus = trim(*input.Status)
@@ -142,7 +135,6 @@ func (s *Service) UpdateApplication(actorUserID string, input UpdateApplicationI
 		"path":        nextPath,
 		"arguments":   nextArguments,
 		"working_dir": nextWorkingDir,
-		"category":    nextCategory,
 		"status":      nextStatus,
 	}
 

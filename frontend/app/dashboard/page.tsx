@@ -1,42 +1,74 @@
-import { AppSidebar } from '@/components/app-sidebar'
-import { ChartAreaInteractive } from '@/components/chart-area-interactive'
-import { RecentActivity } from '@/components/recent-activity'
-import { SectionCards } from '@/components/section-cards'
-import { SiteHeader } from '@/components/site-header'
-import {
-  SidebarInset,
-  SidebarProvider,
-} from '@/components/ui/sidebar'
+"use client"
+
+import * as React from "react"
+import { toast } from "sonner"
+
+import { ChartAreaInteractive } from "@/components/chart-area-interactive"
+import { DashboardShell } from "@/components/dashboard-shell"
+import { RecentActivity } from "@/components/recent-activity"
+import { SectionCards } from "@/components/section-cards"
+import { Card, CardContent } from "@/components/ui/card"
+import { api, type Overview } from "@/lib/api"
 
 export default function Page() {
-  return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-width": "calc(var(--spacing) * 72)",
-          "--header-height": "calc(var(--spacing) * 12)",
-        } as React.CSSProperties
+  const [overview, setOverview] = React.useState<Overview | null>(null)
+  const [loading, setLoading] = React.useState(true)
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function loadOverview() {
+      try {
+        const data = await api.overview()
+        if (!cancelled) {
+          setOverview(data)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          toast.error((error as Error).message)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
-    >
-      <AppSidebar variant="inset" />
-      <SidebarInset>
-        <SiteHeader />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <SectionCards />
-              <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-3 lg:px-6">
-                <div className="lg:col-span-2">
-                  <ChartAreaInteractive />
-                </div>
-                <div>
-                  <RecentActivity />
-                </div>
+    }
+
+    loadOverview()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return (
+    <DashboardShell>
+      <div className="flex flex-1 flex-col">
+        <div className="@container/main flex flex-1 flex-col gap-2">
+          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+            {loading || !overview ? (
+              <div className="px-4 lg:px-6">
+                <Card className="border-border/50 bg-card/50">
+                  <CardContent className="p-6 text-sm text-muted-foreground">
+                    正在加载仪表盘数据...
+                  </CardContent>
+                </Card>
               </div>
-            </div>
+            ) : (
+              <>
+                <SectionCards cards={overview.cards} />
+                <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-3 lg:px-6">
+                  <div className="lg:col-span-2">
+                    <ChartAreaInteractive data={overview.connectionTrend} />
+                  </div>
+                  <div>
+                    <RecentActivity activities={overview.recentActivities} />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </div>
+    </DashboardShell>
   )
 }

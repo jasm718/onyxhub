@@ -25,7 +25,7 @@ func main() {
 	svc := service.New(database, cfg.JWTSecret, agent)
 	agent.SetMessageHandler(svc.HandleAgentMessage)
 
-	router := httpserver.NewRouter(svc, cfg.JWTSecret, agent)
+	router := httpserver.NewRouter(svc, cfg.JWTSecret, agent, cfg.CORSAllowedOrigins)
 	log.Printf("OnyxHub backend listening on %s", cfg.HTTPAddr)
 	if err := router.Run(cfg.HTTPAddr); err != nil {
 		log.Fatalf("启动服务失败: %v", err)

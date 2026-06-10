@@ -39,11 +39,36 @@ func Open(cfg config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("数据库迁移失败: %w", err)
 	}
 
+	if err := dropApplicationCategoryColumn(database); err != nil {
+		return nil, err
+	}
+
 	if err := ensureAdmin(database); err != nil {
 		return nil, err
 	}
 
 	return database, nil
+}
+
+type tableColumn struct {
+	Name string `gorm:"column:name"`
+}
+
+func dropApplicationCategoryColumn(database *gorm.DB) error {
+	var columns []tableColumn
+	if err := database.Raw("PRAGMA table_info(applications)").Scan(&columns).Error; err != nil {
+		return fmt.Errorf("读取应用表结构失败: %w", err)
+	}
+
+	for _, column := range columns {
+		if column.Name == "category" {
+			if err := database.Exec("ALTER TABLE applications DROP COLUMN category").Error; err != nil {
+				return fmt.Errorf("删除应用分类字段失败: %w", err)
+			}
+			return nil
+		}
+	}
+	return nil
 }
 
 func ensureAdmin(database *gorm.DB) error {

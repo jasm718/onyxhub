@@ -94,24 +94,24 @@ backend 提供三类入口：
 
 ```json
 {
-  "code": 0,
-  "message": "ok",
-  "data": {}
+	"code": 0,
+	"message": "ok",
+	"data": {}
 }
 ```
 
 ### 改动模块及接口
 
-| 模块 | 改动类型 | 改动内容 |
-| --- | --- | --- |
-| `auth` | 新增 | 管理员和普通用户登录、JWT 签发与校验 |
-| `users` | 新增 | 用户列表、新增、修改、删除，维护平台登录名和 Windows 用户名 |
-| `applications` | 新增 | 应用列表、新增、修改、删除、启用、禁用、启动信息维护 |
-| `authorizations` | 新增 | 用户与应用直接授权和取消授权 |
-| `client` | 新增 | 获取授权应用、获取应用启动信息 |
-| `agent_ws` | 新增 | `/ws/agent` 双向 WebSocket，接收状态快照并下发控制指令 |
-| `overview` | 新增 | 首页统计卡片、连接趋势、最近活动 |
-| `activity_logs` | 新增 | 内部活动日志表，不作为独立对外模块 |
+| 模块             | 改动类型 | 改动内容                                                    |
+| ---------------- | -------- | ----------------------------------------------------------- |
+| `auth`           | 新增     | 管理员和普通用户登录、JWT 签发与校验                        |
+| `users`          | 新增     | 用户列表、新增、修改、删除，维护平台登录名和 Windows 用户名 |
+| `applications`   | 新增     | 应用列表、新增、修改、删除、启用、禁用、启动信息维护        |
+| `authorizations` | 新增     | 用户与应用直接授权和取消授权                                |
+| `client`         | 新增     | 获取授权应用、获取应用启动信息                              |
+| `agent_ws`       | 新增     | `/ws/agent` 双向 WebSocket，接收状态快照并下发控制指令      |
+| `overview`       | 新增     | 首页统计卡片、连接趋势、最近活动                            |
+| `activity_logs`  | 新增     | 内部活动日志表，不作为独立对外模块                          |
 
 ```text
 admin frontend
@@ -137,18 +137,18 @@ agent
 
 #### `users`
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | `string` | 用户 ID |
-| `username` | `string` | 平台登录名，唯一 |
-| `displayName` | `string` | 展示名称 |
-| `windowsUsername` | `string` | Windows 连接用户名，普通用户必填且唯一 |
-| `passwordHash` | `string` | bcrypt 密码哈希 |
-| `role` | `admin \| user` | 用户角色 |
-| `status` | `active \| disabled` | 用户状态 |
-| `lastLoginAt` | `datetime` | 最后登录时间 |
-| `createdAt` | `datetime` | 创建时间 |
-| `updatedAt` | `datetime` | 更新时间 |
+| 字段              | 类型                 | 说明                                   |
+| ----------------- | -------------------- | -------------------------------------- |
+| `id`              | `string`             | 用户 ID                                |
+| `username`        | `string`             | 平台登录名，唯一                       |
+| `displayName`     | `string`             | 展示名称                               |
+| `windowsUsername` | `string`             | Windows 连接用户名，普通用户必填且唯一 |
+| `passwordHash`    | `string`             | bcrypt 密码哈希                        |
+| `role`            | `admin \| user`      | 用户角色                               |
+| `status`          | `active \| disabled` | 用户状态                               |
+| `lastLoginAt`     | `datetime`           | 最后登录时间                           |
+| `createdAt`       | `datetime`           | 创建时间                               |
+| `updatedAt`       | `datetime`           | 更新时间                               |
 
 约束：
 
@@ -159,17 +159,16 @@ agent
 
 #### `applications`
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | `string` | 应用 ID |
-| `name` | `string` | 应用名称 |
-| `path` | `string` | 应用启动路径，唯一 |
-| `arguments` | `string` | 启动参数 |
-| `workingDir` | `string` | 工作目录 |
-| `category` | `string` | 应用分类 |
-| `status` | `active \| disabled` | 应用状态 |
-| `createdAt` | `datetime` | 创建时间 |
-| `updatedAt` | `datetime` | 更新时间 |
+| 字段         | 类型                 | 说明               |
+| ------------ | -------------------- | ------------------ |
+| `id`         | `string`             | 应用 ID            |
+| `name`       | `string`             | 应用名称           |
+| `path`       | `string`             | 应用启动路径，唯一 |
+| `arguments`  | `string`             | 启动参数           |
+| `workingDir` | `string`             | 工作目录           |
+| `status`     | `active \| disabled` | 应用状态           |
+| `createdAt`  | `datetime`           | 创建时间           |
+| `updatedAt`  | `datetime`           | 更新时间           |
 
 约束：
 
@@ -179,12 +178,12 @@ agent
 
 #### `user_app_authorizations`
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | `string` | 授权 ID |
-| `userId` | `string` | 用户 ID |
-| `applicationId` | `string` | 应用 ID |
-| `createdAt` | `datetime` | 创建时间 |
+| 字段            | 类型       | 说明     |
+| --------------- | ---------- | -------- |
+| `id`            | `string`   | 授权 ID  |
+| `userId`        | `string`   | 用户 ID  |
+| `applicationId` | `string`   | 应用 ID  |
+| `createdAt`     | `datetime` | 创建时间 |
 
 约束：
 
@@ -195,33 +194,33 @@ agent
 
 #### `agent_status`
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | `string` | 固定单 agent 记录 ID |
-| `hostname` | `string` | 主机名 |
-| `cpuUsage` | `number` | CPU 使用率 |
-| `memoryUsage` | `number` | 内存使用率 |
-| `gpuUsage` | `number` | GPU 使用率 |
-| `diskUsage` | `number` | 磁盘使用率 |
-| `reportedAt` | `datetime` | 上报时间 |
+| 字段          | 类型       | 说明                 |
+| ------------- | ---------- | -------------------- |
+| `id`          | `string`   | 固定单 agent 记录 ID |
+| `hostname`    | `string`   | 主机名               |
+| `cpuUsage`    | `number`   | CPU 使用率           |
+| `memoryUsage` | `number`   | 内存使用率           |
+| `gpuUsage`    | `number`   | GPU 使用率           |
+| `diskUsage`   | `number`   | 磁盘使用率           |
+| `reportedAt`  | `datetime` | 上报时间             |
 
 #### `sessions`
 
 session 只表示 Windows/RDS 用户连接会话，不表示用户打开了哪个应用。
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | `string` | 会话 ID |
-| `remoteSessionId` | `string` | backend 生成的稳定会话标识 |
-| `windowsSessionId` | `number` | Windows Session ID |
-| `userId` | `string` | 平台用户 ID |
-| `windowsUsername` | `string` | Windows 用户名 |
-| `status` | `active \| closed` | 会话状态 |
-| `connectedAt` | `datetime` | 连接开始时间 |
-| `disconnectedAt` | `datetime` | 断开时间 |
-| `lastSeenAt` | `datetime` | 最后一次在 agent 快照中出现的时间 |
-| `createdAt` | `datetime` | 创建时间 |
-| `updatedAt` | `datetime` | 更新时间 |
+| 字段               | 类型               | 说明                              |
+| ------------------ | ------------------ | --------------------------------- |
+| `id`               | `string`           | 会话 ID                           |
+| `remoteSessionId`  | `string`           | backend 生成的稳定会话标识        |
+| `windowsSessionId` | `number`           | Windows Session ID                |
+| `userId`           | `string`           | 平台用户 ID                       |
+| `windowsUsername`  | `string`           | Windows 用户名                    |
+| `status`           | `active \| closed` | 会话状态                          |
+| `connectedAt`      | `datetime`         | 连接开始时间                      |
+| `disconnectedAt`   | `datetime`         | 断开时间                          |
+| `lastSeenAt`       | `datetime`         | 最后一次在 agent 快照中出现的时间 |
+| `createdAt`        | `datetime`         | 创建时间                          |
+| `updatedAt`        | `datetime`         | 更新时间                          |
 
 约束：
 
@@ -233,16 +232,16 @@ session 只表示 Windows/RDS 用户连接会话，不表示用户打开了哪�
 
 #### `activity_logs`
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | `string` | 日志 ID |
-| `type` | `string` | 日志类型 |
-| `actorType` | `admin \| system` | 操作者类型 |
-| `actorUserId` | `string` | 管理员用户 ID，可为空 |
-| `targetType` | `string` | 目标类型 |
-| `targetId` | `string` | 目标 ID |
-| `message` | `string` | 展示文案 |
-| `createdAt` | `datetime` | 创建时间 |
+| 字段          | 类型              | 说明                  |
+| ------------- | ----------------- | --------------------- |
+| `id`          | `string`          | 日志 ID               |
+| `type`        | `string`          | 日志类型              |
+| `actorType`   | `admin \| system` | 操作者类型            |
+| `actorUserId` | `string`          | 管理员用户 ID，可为空 |
+| `targetType`  | `string`          | 目标类型              |
+| `targetId`    | `string`          | 目标 ID               |
+| `message`     | `string`          | 展示文案              |
+| `createdAt`   | `datetime`        | 创建时间              |
 
 记录范围：
 
@@ -282,23 +281,23 @@ backend/
 
 #### 管理后台 API
 
-| 接口名称 | 请求方法 | 路径 | 参数 | 返回值说明 |
-| --- | --- | --- | --- | --- |
-| 管理员登录 | `POST` | `/api/admin/auth/login` | `username`, `password` | 返回 JWT 和管理员信息 |
-| 用户列表 | `GET` | `/api/admin/users` | 无 | 返回全部用户 |
-| 新增用户 | `POST` | `/api/admin/users/create` | `username`, `displayName`, `windowsUsername`, `password`, `role`, `status` | 创建用户 |
-| 修改用户 | `POST` | `/api/admin/users/update` | `id` 及可修改字段 | 修改用户 |
-| 删除用户 | `POST` | `/api/admin/users/delete` | `id` | 删除 Windows 用户成功后删除平台用户 |
-| 应用列表 | `GET` | `/api/admin/applications` | 无 | 返回全部应用 |
-| 新增应用 | `POST` | `/api/admin/applications/create` | `name`, `path`, `arguments`, `workingDir`, `category`, `status` | 创建应用 |
-| 修改应用 | `POST` | `/api/admin/applications/update` | `id` 及可修改字段 | 修改应用 |
-| 删除应用 | `POST` | `/api/admin/applications/delete` | `id` | 删除数据库应用记录和授权关系 |
-| 启用应用 | `POST` | `/api/admin/applications/enable` | `id` | 将应用状态改为 `active` |
-| 禁用应用 | `POST` | `/api/admin/applications/disable` | `id` | 将应用状态改为 `disabled` |
-| 授权列表 | `GET` | `/api/admin/authorizations` | 无 | 返回用户应用授权关系 |
-| 授权应用 | `POST` | `/api/admin/authorizations/grant` | `userId`, `applicationId` | 给用户授权应用 |
-| 取消授权 | `POST` | `/api/admin/authorizations/revoke` | `userId`, `applicationId` | 取消用户应用授权 |
-| 首页概览 | `GET` | `/api/admin/overview` | 无 | 返回统计卡片、连接趋势、最近活动 |
+| 接口名称   | 请求方法 | 路径                               | 参数                                                                       | 返回值说明                          |
+| ---------- | -------- | ---------------------------------- | -------------------------------------------------------------------------- | ----------------------------------- |
+| 管理员登录 | `POST`   | `/api/admin/auth/login`            | `username`, `password`                                                     | 返回 JWT 和管理员信息               |
+| 用户列表   | `GET`    | `/api/admin/users`                 | 无                                                                         | 返回全部用户                        |
+| 新增用户   | `POST`   | `/api/admin/users/create`          | `username`, `displayName`, `windowsUsername`, `password`, `role`, `status` | 创建用户                            |
+| 修改用户   | `POST`   | `/api/admin/users/update`          | `id` 及可修改字段                                                          | 修改用户                            |
+| 删除用户   | `POST`   | `/api/admin/users/delete`          | `id`                                                                       | 删除 Windows 用户成功后删除平台用户 |
+| 应用列表   | `GET`    | `/api/admin/applications`          | 无                                                                         | 返回全部应用                        |
+| 新增应用   | `POST`   | `/api/admin/applications/create`   | `name`, `path`, `arguments`, `workingDir`, `category`, `status`            | 创建应用                            |
+| 修改应用   | `POST`   | `/api/admin/applications/update`   | `id` 及可修改字段                                                          | 修改应用                            |
+| 删除应用   | `POST`   | `/api/admin/applications/delete`   | `id`                                                                       | 删除数据库应用记录和授权关系        |
+| 启用应用   | `POST`   | `/api/admin/applications/enable`   | `id`                                                                       | 将应用状态改为 `active`             |
+| 禁用应用   | `POST`   | `/api/admin/applications/disable`  | `id`                                                                       | 将应用状态改为 `disabled`           |
+| 授权列表   | `GET`    | `/api/admin/authorizations`        | 无                                                                         | 返回用户应用授权关系                |
+| 授权应用   | `POST`   | `/api/admin/authorizations/grant`  | `userId`, `applicationId`                                                  | 给用户授权应用                      |
+| 取消授权   | `POST`   | `/api/admin/authorizations/revoke` | `userId`, `applicationId`                                                  | 取消用户应用授权                    |
+| 首页概览   | `GET`    | `/api/admin/overview`              | 无                                                                         | 返回统计卡片、连接趋势、最近活动    |
 
 用户删除流程：
 
@@ -313,16 +312,16 @@ backend/
 
 #### client API
 
-| 接口名称 | 请求方法 | 路径 | 参数 | 返回值说明 |
-| --- | --- | --- | --- | --- |
-| client 登录 | `POST` | `/api/client/auth/login` | `username`, `password` | 只允许 `role=user` 登录，返回 JWT 和用户信息 |
-| 授权应用列表 | `GET` | `/api/client/applications` | 无 | 返回当前用户已授权且启用的应用 |
-| 获取启动信息 | `GET` | `/api/client/applications/launch-info` | `applicationId` | 返回应用 `path`, `arguments`, `workingDir` |
+| 接口名称     | 请求方法 | 路径                                   | 参数                   | 返回值说明                                   |
+| ------------ | -------- | -------------------------------------- | ---------------------- | -------------------------------------------- |
+| client 登录  | `POST`   | `/api/client/auth/login`               | `username`, `password` | 只允许 `role=user` 登录，返回 JWT 和用户信息 |
+| 授权应用列表 | `GET`    | `/api/client/applications`             | 无                     | 返回当前用户已授权且启用的应用               |
+| 获取启动信息 | `GET`    | `/api/client/applications/launch-info` | `applicationId`        | 返回应用 `path`, `arguments`, `workingDir`   |
 
 #### agent WebSocket
 
-| 接口名称 | 协议 | 路径 | 说明 |
-| --- | --- | --- | --- |
+| 接口名称       | 协议 | 路径        | 说明                                                    |
+| -------------- | ---- | ----------- | ------------------------------------------------------- |
 | agent 双向连接 | `WS` | `/ws/agent` | agent 上报主机状态和 session 快照，backend 下发控制指令 |
 
 agent 每 1 秒通过同一个 WebSocket 上报完整快照。
@@ -331,13 +330,13 @@ agent 每 1 秒通过同一个 WebSocket 上报完整快照。
 
 ```json
 {
-  "type": "host_status",
-  "reportedAt": "2026-06-09T12:00:00Z",
-  "hostname": "ONYXHOST",
-  "cpuUsage": 12.5,
-  "memoryUsage": 48.2,
-  "gpuUsage": 5.1,
-  "diskUsage": 64.3
+	"type": "host_status",
+	"reportedAt": "2026-06-09T12:00:00Z",
+	"hostname": "ONYXHOST",
+	"cpuUsage": 12.5,
+	"memoryUsage": 48.2,
+	"gpuUsage": 5.1,
+	"diskUsage": 64.3
 }
 ```
 
@@ -345,15 +344,15 @@ session 快照消息：
 
 ```json
 {
-  "type": "session_snapshot",
-  "reportedAt": "2026-06-09T12:00:00Z",
-  "sessions": [
-    {
-      "windowsSessionId": 12,
-      "windowsUsername": "zhangsan",
-      "connectedAt": "2026-06-09T11:58:30Z"
-    }
-  ]
+	"type": "session_snapshot",
+	"reportedAt": "2026-06-09T12:00:00Z",
+	"sessions": [
+		{
+			"windowsSessionId": 12,
+			"windowsUsername": "zhangsan",
+			"connectedAt": "2026-06-09T11:58:30Z"
+		}
+	]
 }
 ```
 
@@ -361,12 +360,12 @@ session 快照消息：
 
 ```json
 {
-  "type": "command",
-  "commandId": "cmd_001",
-  "name": "delete_windows_user",
-  "payload": {
-    "windowsUsername": "zhangsan"
-  }
+	"type": "command",
+	"commandId": "cmd_001",
+	"name": "delete_windows_user",
+	"payload": {
+		"windowsUsername": "zhangsan"
+	}
 }
 ```
 
@@ -374,35 +373,35 @@ agent 指令响应：
 
 ```json
 {
-  "type": "command_result",
-  "commandId": "cmd_001",
-  "success": true,
-  "message": "ok"
+	"type": "command_result",
+	"commandId": "cmd_001",
+	"success": true,
+	"message": "ok"
 }
 ```
 
 ### 异常处理
 
-| 场景 | 处理方式 | 用户提示 |
-| --- | --- | --- |
-| 登录账号不存在或密码错误 | 返回登录失败，不签发 token | 账号或密码错误 |
-| 用户状态为 `disabled` | 禁止登录 | 用户已禁用 |
-| 非 admin 调用 admin API | 返回无权限 | 无权限访问 |
-| 创建用户时 `username` 重复 | 直接失败 | 用户名已存在 |
-| 创建普通用户时缺少 `windowsUsername` | 直接失败 | Windows 用户名不能为空 |
-| `windowsUsername` 重复 | 直接失败 | Windows 用户名已存在 |
-| 删除用户时存在 active session | 直接失败，不下发 agent 指令 | 用户当前在线，无法删除 |
-| 删除用户时 agent 未连接 | 直接失败 | agent 未连接，无法删除 Windows 用户 |
-| 删除 Windows 用户指令超时 | 直接失败，不删除平台用户 | 删除 Windows 用户超时 |
-| 删除 Windows 用户失败 | 直接失败，不删除平台用户 | 删除 Windows 用户失败 |
-| 删除应用失败 | 直接失败，不删除授权关系 | 删除应用失败 |
-| 创建应用时 `path` 重复 | 直接失败 | 应用路径已存在 |
-| client 获取启动信息时应用未授权 | 直接失败 | 未授权访问该应用 |
-| client 获取启动信息时应用已禁用 | 直接失败 | 应用已禁用 |
-| agent WS 上报格式错误 | 丢弃该消息并记录错误日志 | 无 |
-| session 快照中 `windowsUsername` 找不到用户 | 跳过该 session，记录错误日志 | 无 |
-| session 快照缺少 `windowsSessionId/windowsUsername/connectedAt` | 跳过该 session，记录错误日志 | 无 |
-| agent WS 断开 | 不自动关闭 active session，overview 显示 agent 离线 | agent 离线 |
+| 场景                                                            | 处理方式                                            | 用户提示                            |
+| --------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------- |
+| 登录账号不存在或密码错误                                        | 返回登录失败，不签发 token                          | 账号或密码错误                      |
+| 用户状态为 `disabled`                                           | 禁止登录                                            | 用户已禁用                          |
+| 非 admin 调用 admin API                                         | 返回无权限                                          | 无权限访问                          |
+| 创建用户时 `username` 重复                                      | 直接失败                                            | 用户名已存在                        |
+| 创建普通用户时缺少 `windowsUsername`                            | 直接失败                                            | Windows 用户名不能为空              |
+| `windowsUsername` 重复                                          | 直接失败                                            | Windows 用户名已存在                |
+| 删除用户时存在 active session                                   | 直接失败，不下发 agent 指令                         | 用户当前在线，无法删除              |
+| 删除用户时 agent 未连接                                         | 直接失败                                            | agent 未连接，无法删除 Windows 用户 |
+| 删除 Windows 用户指令超时                                       | 直接失败，不删除平台用户                            | 删除 Windows 用户超时               |
+| 删除 Windows 用户失败                                           | 直接失败，不删除平台用户                            | 删除 Windows 用户失败               |
+| 删除应用失败                                                    | 直接失败，不删除授权关系                            | 删除应用失败                        |
+| 创建应用时 `path` 重复                                          | 直接失败                                            | 应用路径已存在                      |
+| client 获取启动信息时应用未授权                                 | 直接失败                                            | 未授权访问该应用                    |
+| client 获取启动信息时应用已禁用                                 | 直接失败                                            | 应用已禁用                          |
+| agent WS 上报格式错误                                           | 丢弃该消息并记录错误日志                            | 无                                  |
+| session 快照中 `windowsUsername` 找不到用户                     | 跳过该 session，记录错误日志                        | 无                                  |
+| session 快照缺少 `windowsSessionId/windowsUsername/connectedAt` | 跳过该 session，记录错误日志                        | 无                                  |
+| agent WS 断开                                                   | 不自动关闭 active session，overview 显示 agent 离线 | agent 离线                          |
 
 ## 低保真原型
 

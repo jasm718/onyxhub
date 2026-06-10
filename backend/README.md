@@ -40,6 +40,7 @@ Taskfile 默认使用以下配置，也可以在当前 shell 中设置同名环�
 ONYXHUB_HTTP_ADDR=:8080
 ONYXHUB_DB_PATH=data/onyxhub.db
 ONYXHUB_JWT_SECRET=dev-secret-change-me
+ONYXHUB_CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
 
 初始化数据库时会写入 MVP 固定管理员：

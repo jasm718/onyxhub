@@ -7,16 +7,21 @@ import (
 )
 
 type Config struct {
-	HTTPAddr  string
-	DBPath    string
-	JWTSecret string
+	HTTPAddr           string
+	DBPath             string
+	JWTSecret          string
+	CORSAllowedOrigins []string
 }
 
 func Load() (Config, error) {
 	cfg := Config{
-		HTTPAddr:  strings.TrimSpace(os.Getenv("ONYXHUB_HTTP_ADDR")),
-		DBPath:    strings.TrimSpace(os.Getenv("ONYXHUB_DB_PATH")),
-		JWTSecret: strings.TrimSpace(os.Getenv("ONYXHUB_JWT_SECRET")),
+		HTTPAddr:           strings.TrimSpace(os.Getenv("ONYXHUB_HTTP_ADDR")),
+		DBPath:             strings.TrimSpace(os.Getenv("ONYXHUB_DB_PATH")),
+		JWTSecret:          strings.TrimSpace(os.Getenv("ONYXHUB_JWT_SECRET")),
+		CORSAllowedOrigins: parseCSV(os.Getenv("ONYXHUB_CORS_ALLOWED_ORIGINS")),
+	}
+	if len(cfg.CORSAllowedOrigins) == 0 {
+		cfg.CORSAllowedOrigins = []string{"http://localhost:3000", "http://127.0.0.1:3000"}
 	}
 
 	if cfg.HTTPAddr == "" {
@@ -30,4 +35,16 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func parseCSV(value string) []string {
+	parts := strings.Split(value, ",")
+	items := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.TrimSpace(part)
+		if item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
 }

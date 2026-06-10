@@ -33,7 +33,7 @@ type UpdateUserInput struct {
 
 func (s *Service) ListUsers() ([]PublicUser, error) {
 	var users []models.User
-	if err := s.db.Order("created_at desc").Find(&users).Error; err != nil {
+	if err := s.db.Where("role = ?", models.RoleUser).Order("created_at desc").Find(&users).Error; err != nil {
 		return nil, fmt.Errorf("查询用户列表失败: %w", err)
 	}
 	return toPublicUsers(users), nil

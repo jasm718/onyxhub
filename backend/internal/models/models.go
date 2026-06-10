@@ -71,7 +71,6 @@ type Application struct {
 	Path       string    `gorm:"size:512;not null;uniqueIndex" json:"path"`
 	Arguments  string    `gorm:"size:512" json:"arguments"`
 	WorkingDir string    `gorm:"size:512" json:"workingDir"`
-	Category   string    `gorm:"size:128" json:"category"`
 	Status     string    `gorm:"size:32;not null;index" json:"status"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
