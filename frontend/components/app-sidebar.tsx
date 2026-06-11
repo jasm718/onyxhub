@@ -93,7 +93,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </div>
                 <div className="flex flex-col">
                   <span className="text-base font-semibold">OnyxHub</span>
-                  <span className="text-xs text-muted-foreground">应用分发平台</span>
+                  <span className="text-xs text-muted-foreground">应用虚拟化管理平台</span>
                 </div>
               </Link>
             </SidebarMenuButton>

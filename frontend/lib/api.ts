@@ -29,6 +29,8 @@ export type Application = {
   arguments: string
   workingDir: string
   status: "active" | "disabled"
+  remoteAppRegistered: boolean
+  remoteAppAlias: string
   createdAt: string
   updatedAt: string
 }
@@ -111,11 +113,48 @@ export type CreateApplicationInput = {
   arguments: string
   workingDir: string
   status: "active" | "disabled"
+  remoteAppRegistered: boolean
+  remoteAppAlias: string
 }
 
 export type UpdateApplicationInput = CreateApplicationInput & {
   id: string
 }
+
+export type InstalledApplication = {
+  name: string
+  path: string
+  arguments: string
+  workingDir: string
+}
+
+export type ApplicationIcon = {
+  path: string
+  mimeType: string
+  iconBase64: string
+}
+
+export type SystemSettings = {
+  id: string
+  storageRootPath: string
+  storageQuotaMb: number
+  storageVisibleDriveLetter: string
+  rdpLocalDriveMappingEnabled: boolean
+  disconnectedSessionLogoffMinutes: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type UpdateSystemSettingsInput = Partial<
+  Pick<
+    SystemSettings,
+    | "storageRootPath"
+    | "storageQuotaMb"
+    | "storageVisibleDriveLetter"
+    | "rdpLocalDriveMappingEnabled"
+    | "disconnectedSessionLogoffMinutes"
+  >
+>
 
 function apiBaseUrl() {
   return (process.env.NEXT_PUBLIC_ONYXHUB_API_BASE_URL || defaultBaseUrl).replace(/\/+$/, "")
@@ -219,6 +258,12 @@ export const api = {
   disableApplication(id: string) {
     return post<Application>("/api/admin/applications/disable", { id })
   },
+  scanInstalledApplications() {
+    return post<InstalledApplication[]>("/api/admin/applications/scan-installed", {})
+  },
+  fetchApplicationIcon(path: string) {
+    return post<ApplicationIcon>("/api/admin/applications/icon", { path })
+  },
   authorizations() {
     return request<Authorization[]>("/api/admin/authorizations")
   },
@@ -233,5 +278,11 @@ export const api = {
       userId,
       applicationId,
     })
+  },
+  systemSettings() {
+    return request<SystemSettings>("/api/admin/settings/system")
+  },
+  updateSystemSettings(input: UpdateSystemSettingsInput) {
+    return post<SystemSettings>("/api/admin/settings/system", input)
   },
 }

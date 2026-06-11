@@ -45,10 +45,15 @@ func NewRouter(svc *service.Service, jwtSecret string, agent *agentws.Manager, c
 		admin.POST("/applications/delete", server.deleteApplication)
 		admin.POST("/applications/enable", server.enableApplication)
 		admin.POST("/applications/disable", server.disableApplication)
+		admin.POST("/applications/scan-installed", server.scanInstalledApplications)
+		admin.POST("/applications/icon", server.fetchApplicationIcon)
 
 		admin.GET("/authorizations", server.listAuthorizations)
 		admin.POST("/authorizations/grant", server.grantAuthorization)
 		admin.POST("/authorizations/revoke", server.revokeAuthorization)
+
+		admin.GET("/settings/system", server.getSystemSettings)
+		admin.POST("/settings/system", server.updateSystemSettings)
 
 		admin.GET("/overview", server.overview)
 	}
@@ -234,6 +239,28 @@ func (s *Server) disableApplication(c *gin.Context) {
 	ok(c, application)
 }
 
+func (s *Server) scanInstalledApplications(c *gin.Context) {
+	applications, err := s.service.ScanInstalledApplications()
+	if err != nil {
+		fail(c, http.StatusOK, err.Error())
+		return
+	}
+	ok(c, applications)
+}
+
+func (s *Server) fetchApplicationIcon(c *gin.Context) {
+	var req service.FetchApplicationIconInput
+	if !bindJSON(c, &req) {
+		return
+	}
+	icon, err := s.service.FetchApplicationIcon(req)
+	if err != nil {
+		fail(c, http.StatusOK, err.Error())
+		return
+	}
+	ok(c, icon)
+}
+
 func (s *Server) listAuthorizations(c *gin.Context) {
 	authorizations, err := s.service.ListAuthorizations()
 	if err != nil {
@@ -275,6 +302,28 @@ func (s *Server) overview(c *gin.Context) {
 		return
 	}
 	ok(c, overview)
+}
+
+func (s *Server) getSystemSettings(c *gin.Context) {
+	settings, err := s.service.GetSystemSettings()
+	if err != nil {
+		fail(c, http.StatusOK, err.Error())
+		return
+	}
+	ok(c, settings)
+}
+
+func (s *Server) updateSystemSettings(c *gin.Context) {
+	var req service.UpdateSystemSettingsInput
+	if !bindJSON(c, &req) {
+		return
+	}
+	settings, err := s.service.UpdateSystemSettings(actorUserID(c), req)
+	if err != nil {
+		fail(c, http.StatusOK, err.Error())
+		return
+	}
+	ok(c, settings)
 }
 
 func (s *Server) clientApplications(c *gin.Context) {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,14 +24,21 @@ type Manager struct {
 	writeMu sync.Mutex
 
 	conn    *websocket.Conn
-	pending map[string]chan CommandResult
+	pending map[string]pendingCommand
 	handler MessageHandler
 }
 
+type pendingCommand struct {
+	conn *websocket.Conn
+	ch   chan CommandResult
+}
+
 type CommandResult struct {
-	Success bool
-	Message string
-	Err     error
+	Success   bool
+	Message   string
+	Data      json.RawMessage
+	Err       error
+	CommandID string
 }
 
 type envelope struct {
@@ -38,10 +46,11 @@ type envelope struct {
 }
 
 type commandResultMessage struct {
-	Type      string `json:"type"`
-	CommandID string `json:"commandId"`
-	Success   bool   `json:"success"`
-	Message   string `json:"message"`
+	Type      string          `json:"type"`
+	CommandID string          `json:"commandId"`
+	Success   bool            `json:"success"`
+	Message   string          `json:"message"`
+	Data      json.RawMessage `json:"data"`
 }
 
 var upgrader = websocket.Upgrader{
@@ -52,7 +61,7 @@ var upgrader = websocket.Upgrader{
 
 func NewManager() *Manager {
 	return &Manager{
-		pending: make(map[string]chan CommandResult),
+		pending: make(map[string]pendingCommand),
 	}
 }
 
@@ -87,26 +96,29 @@ func (m *Manager) Handle(c *gin.Context) {
 	m.readLoop(conn)
 }
 
-func (m *Manager) SendDeleteWindowsUser(ctx context.Context, windowsUsername string) error {
+func (m *Manager) SendCommand(ctx context.Context, name string, payload any) (CommandResult, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return CommandResult{}, errors.New("agent 命令名不能为空")
+	}
+
 	commandID := newCommandID()
 	resultCh := make(chan CommandResult, 1)
 
 	m.mu.Lock()
 	if m.conn == nil {
 		m.mu.Unlock()
-		return errors.New("agent 未连接，无法删除 Windows 用户")
+		return CommandResult{}, errors.New("agent 未连接")
 	}
 	conn := m.conn
-	m.pending[commandID] = resultCh
+	m.pending[commandID] = pendingCommand{conn: conn, ch: resultCh}
 	m.mu.Unlock()
 
 	msg := map[string]any{
 		"type":      "command",
 		"commandId": commandID,
-		"name":      "delete_windows_user",
-		"payload": map[string]any{
-			"windowsUsername": windowsUsername,
-		},
+		"name":      name,
+		"payload":   payload,
 	}
 
 	m.writeMu.Lock()
@@ -114,21 +126,24 @@ func (m *Manager) SendDeleteWindowsUser(ctx context.Context, windowsUsername str
 	m.writeMu.Unlock()
 	if err != nil {
 		m.removePending(commandID)
-		return fmt.Errorf("下发删除 Windows 用户指令失败: %w", err)
+		return CommandResult{}, fmt.Errorf("下发 agent 命令失败: %w", err)
 	}
 
 	select {
 	case result := <-resultCh:
 		if result.Err != nil {
-			return result.Err
+			return CommandResult{}, result.Err
 		}
 		if !result.Success {
-			return errors.New("删除 Windows 用户失败")
+			if strings.TrimSpace(result.Message) == "" {
+				return CommandResult{}, fmt.Errorf("agent 命令执行失败: %s", name)
+			}
+			return CommandResult{}, errors.New(result.Message)
 		}
-		return nil
+		return result, nil
 	case <-ctx.Done():
 		m.removePending(commandID)
-		return errors.New("删除 Windows 用户超时")
+		return CommandResult{}, fmt.Errorf("agent 命令超时: %s", name)
 	}
 }
 
@@ -139,9 +154,12 @@ func (m *Manager) readLoop(conn *websocket.Conn) {
 		if m.conn == conn {
 			m.conn = nil
 		}
-		for commandID, ch := range m.pending {
+		for commandID, pending := range m.pending {
+			if pending.conn != conn {
+				continue
+			}
 			delete(m.pending, commandID)
-			ch <- CommandResult{Err: errors.New("agent 连接已断开")}
+			pending.ch <- CommandResult{Err: errors.New("agent 连接已断开")}
 		}
 		m.mu.Unlock()
 	}()
@@ -187,7 +205,7 @@ func (m *Manager) handleCommandResult(raw []byte) {
 	}
 
 	m.mu.Lock()
-	ch, ok := m.pending[msg.CommandID]
+	pending, ok := m.pending[msg.CommandID]
 	if ok {
 		delete(m.pending, msg.CommandID)
 	}
@@ -197,9 +215,11 @@ func (m *Manager) handleCommandResult(raw []byte) {
 		return
 	}
 
-	ch <- CommandResult{
-		Success: msg.Success,
-		Message: msg.Message,
+	pending.ch <- CommandResult{
+		Success:   msg.Success,
+		Message:   msg.Message,
+		Data:      msg.Data,
+		CommandID: msg.CommandID,
 	}
 }
 

@@ -33,6 +33,7 @@ func Open(cfg config.Config) (*gorm.DB, error) {
 		&models.Application{},
 		&models.UserAppAuthorization{},
 		&models.AgentStatus{},
+		&models.SystemSettings{},
 		&models.Session{},
 		&models.ActivityLog{},
 	); err != nil {

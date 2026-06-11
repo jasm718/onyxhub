@@ -28,21 +28,24 @@ const (
 	TargetTypeApplication   = "application"
 	TargetTypeAuthorization = "authorization"
 	TargetTypeSession       = "session"
+	TargetTypeSystem        = "system"
 
-	ActivityUserCreated          = "user_created"
-	ActivityUserUpdated          = "user_updated"
-	ActivityUserDeleted          = "user_deleted"
-	ActivityApplicationCreated   = "application_created"
-	ActivityApplicationUpdated   = "application_updated"
-	ActivityApplicationDeleted   = "application_deleted"
-	ActivityApplicationEnabled   = "application_enabled"
-	ActivityApplicationDisabled  = "application_disabled"
-	ActivityAuthorizationGranted = "authorization_granted"
-	ActivityAuthorizationRevoked = "authorization_revoked"
-	ActivitySessionOpened        = "session_opened"
-	ActivitySessionClosed        = "session_closed"
+	ActivityUserCreated           = "user_created"
+	ActivityUserUpdated           = "user_updated"
+	ActivityUserDeleted           = "user_deleted"
+	ActivityApplicationCreated    = "application_created"
+	ActivityApplicationUpdated    = "application_updated"
+	ActivityApplicationDeleted    = "application_deleted"
+	ActivityApplicationEnabled    = "application_enabled"
+	ActivityApplicationDisabled   = "application_disabled"
+	ActivityAuthorizationGranted  = "authorization_granted"
+	ActivityAuthorizationRevoked  = "authorization_revoked"
+	ActivitySessionOpened         = "session_opened"
+	ActivitySessionClosed         = "session_closed"
+	ActivitySystemSettingsUpdated = "system_settings_updated"
 
-	SingleAgentID = "single_agent"
+	SingleAgentID          = "single_agent"
+	SingleSystemSettingsID = "system_settings"
 )
 
 type User struct {
@@ -66,14 +69,16 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 }
 
 type Application struct {
-	ID         string    `gorm:"primaryKey;size:64" json:"id"`
-	Name       string    `gorm:"size:128;not null" json:"name"`
-	Path       string    `gorm:"size:512;not null;uniqueIndex" json:"path"`
-	Arguments  string    `gorm:"size:512" json:"arguments"`
-	WorkingDir string    `gorm:"size:512" json:"workingDir"`
-	Status     string    `gorm:"size:32;not null;index" json:"status"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
+	ID                  string    `gorm:"primaryKey;size:64" json:"id"`
+	Name                string    `gorm:"size:128;not null" json:"name"`
+	Path                string    `gorm:"size:512;not null;uniqueIndex" json:"path"`
+	Arguments           string    `gorm:"size:512" json:"arguments"`
+	WorkingDir          string    `gorm:"size:512" json:"workingDir"`
+	Status              string    `gorm:"size:32;not null;index" json:"status"`
+	RemoteAppRegistered bool      `gorm:"not null;default:false" json:"remoteAppRegistered"`
+	RemoteAppAlias      string    `gorm:"size:128;index" json:"remoteAppAlias"`
+	CreatedAt           time.Time `json:"createdAt"`
+	UpdatedAt           time.Time `json:"updatedAt"`
 }
 
 func (a *Application) BeforeCreate(tx *gorm.DB) error {
@@ -105,6 +110,24 @@ type AgentStatus struct {
 	GPUUsage    float64   `json:"gpuUsage"`
 	DiskUsage   float64   `json:"diskUsage"`
 	ReportedAt  time.Time `gorm:"index" json:"reportedAt"`
+}
+
+type SystemSettings struct {
+	ID                               string    `gorm:"primaryKey;size:64" json:"id"`
+	StorageRootPath                  string    `gorm:"size:512" json:"storageRootPath"`
+	StorageQuotaMB                   int       `json:"storageQuotaMb"`
+	StorageVisibleDriveLetter        string    `gorm:"size:1" json:"storageVisibleDriveLetter"`
+	RDPLocalDriveMappingEnabled      bool      `gorm:"not null;default:false" json:"rdpLocalDriveMappingEnabled"`
+	DisconnectedSessionLogoffMinutes int       `json:"disconnectedSessionLogoffMinutes"`
+	CreatedAt                        time.Time `json:"createdAt"`
+	UpdatedAt                        time.Time `json:"updatedAt"`
+}
+
+func (s *SystemSettings) BeforeCreate(tx *gorm.DB) error {
+	if s.ID == "" {
+		s.ID = SingleSystemSettingsID
+	}
+	return nil
 }
 
 type Session struct {

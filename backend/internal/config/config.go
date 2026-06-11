@@ -33,7 +33,6 @@ func Load() (Config, error) {
 	if cfg.JWTSecret == "" {
 		return Config{}, fmt.Errorf("缺少环境变量 ONYXHUB_JWT_SECRET")
 	}
-
 	return cfg, nil
 }
 

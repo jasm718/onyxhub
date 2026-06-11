@@ -38,6 +38,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { Switch } from "@/components/ui/switch"
 import {
   Table,
   TableBody,
@@ -60,6 +61,8 @@ type ApplicationFormState = {
   arguments: string
   workingDir: string
   status: "active" | "disabled"
+  remoteAppRegistered: boolean
+  remoteAppAlias: string
 }
 
 const emptyForm: ApplicationFormState = {
@@ -69,6 +72,8 @@ const emptyForm: ApplicationFormState = {
   arguments: "",
   workingDir: "",
   status: "active",
+  remoteAppRegistered: false,
+  remoteAppAlias: "",
 }
 
 function toForm(application: Application): ApplicationFormState {
@@ -79,6 +84,8 @@ function toForm(application: Application): ApplicationFormState {
     arguments: application.arguments,
     workingDir: application.workingDir,
     status: application.status,
+    remoteAppRegistered: application.remoteAppRegistered,
+    remoteAppAlias: application.remoteAppAlias,
   }
 }
 
@@ -286,7 +293,12 @@ export default function ApplicationsPage() {
                           return (
                             <TableRow key={application.id} className="border-border/50">
                               <TableCell className="font-medium">
-                                {application.name}
+                                <div>{application.name}</div>
+                                {application.remoteAppRegistered ? (
+                                  <div className="text-xs text-muted-foreground">
+                                    RemoteApp · {application.remoteAppAlias}
+                                  </div>
+                                ) : null}
                               </TableCell>
                               <TableCell className="hidden max-w-[220px] truncate text-muted-foreground md:table-cell">
                                 {application.path}
@@ -436,6 +448,27 @@ export default function ApplicationsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
+              <Label htmlFor="remoteAppRegistered">注册 RemoteApp</Label>
+              <Switch
+                id="remoteAppRegistered"
+                checked={form.remoteAppRegistered}
+                onCheckedChange={(checked) =>
+                  setForm({ ...form, remoteAppRegistered: Boolean(checked) })
+                }
+              />
+            </div>
+            {form.remoteAppRegistered ? (
+              <div className="space-y-2">
+                <Label htmlFor="remoteAppAlias">RemoteApp Alias</Label>
+                <Input
+                  id="remoteAppAlias"
+                  value={form.remoteAppAlias}
+                  placeholder="留空自动生成"
+                  onChange={(event) => setForm({ ...form, remoteAppAlias: event.target.value })}
+                />
+              </div>
+            ) : null}
             <SheetFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                 取消

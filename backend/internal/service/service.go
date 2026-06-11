@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -122,11 +123,31 @@ func (s *Service) agentConnected() bool {
 	return s.agent != nil && s.agent.IsConnected()
 }
 
-func (s *Service) deleteWindowsUser(ctx context.Context, windowsUsername string) error {
+func (s *Service) sendAgentCommand(ctx context.Context, name string, payload any) (agentws.CommandResult, error) {
 	if s.agent == nil {
-		return errors.New("agent 未连接，无法删除 Windows 用户")
+		return agentws.CommandResult{}, errors.New("agent 未连接")
 	}
-	return s.agent.SendDeleteWindowsUser(ctx, windowsUsername)
+	return s.agent.SendCommand(ctx, name, payload)
+}
+
+func (s *Service) sendAgentCommandWithTimeout(name string, payload any, timeout time.Duration) (agentws.CommandResult, error) {
+	if timeout <= 0 {
+		return agentws.CommandResult{}, errors.New("agent 命令超时时间无效")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return s.sendAgentCommand(ctx, name, payload)
+}
+
+func decodeAgentData[T any](result agentws.CommandResult) (T, error) {
+	var out T
+	if len(result.Data) == 0 || string(result.Data) == "null" {
+		return out, nil
+	}
+	if err := json.Unmarshal(result.Data, &out); err != nil {
+		return out, fmt.Errorf("解析 agent 命令结果失败: %w", err)
+	}
+	return out, nil
 }
 
 func (s *Service) DB() *gorm.DB {

@@ -87,6 +87,30 @@ func (s *Service) CreateUser(actorUserID string, input CreateUserInput) (PublicU
 		return PublicUser{}, fmt.Errorf("密码哈希失败: %w", err)
 	}
 
+	if role == models.RoleUser {
+		if _, err := s.sendAgentCommandWithTimeout("create_windows_user", map[string]any{
+			"windowsUsername": windowsUsername,
+			"password":        password,
+			"displayName":     displayName,
+		}, 30*time.Second); err != nil {
+			return PublicUser{}, fmt.Errorf("创建 Windows 用户失败: %w", err)
+		}
+
+		if _, err := s.sendAgentCommandWithTimeout("prepare_user_environment", map[string]any{
+			"windowsUsername": windowsUsername,
+		}, 2*time.Minute); err != nil {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_, cleanupErr := s.sendAgentCommand(cleanupCtx, "delete_windows_user", map[string]any{
+				"windowsUsername": windowsUsername,
+			})
+			if cleanupErr != nil {
+				return PublicUser{}, fmt.Errorf("准备用户环境失败: %w；回滚 Windows 用户失败: %v", err, cleanupErr)
+			}
+			return PublicUser{}, fmt.Errorf("准备用户环境失败: %w", err)
+		}
+	}
+
 	user := models.User{
 		Username:        username,
 		DisplayName:     displayName,
@@ -102,6 +126,16 @@ func (s *Service) CreateUser(actorUserID string, input CreateUserInput) (PublicU
 		}
 		return s.logActivity(tx, models.ActivityUserCreated, models.ActorTypeAdmin, actorUserID, models.TargetTypeUser, user.ID, "新增用户 "+user.Username)
 	}); err != nil {
+		if role == models.RoleUser {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_, cleanupErr := s.sendAgentCommand(cleanupCtx, "delete_windows_user", map[string]any{
+				"windowsUsername": windowsUsername,
+			})
+			if cleanupErr != nil {
+				return PublicUser{}, fmt.Errorf("%w；回滚 Windows 用户失败: %v", err, cleanupErr)
+			}
+		}
 		return PublicUser{}, err
 	}
 
@@ -142,11 +176,17 @@ func (s *Service) UpdateUser(actorUserID string, input UpdateUserInput) (PublicU
 	}
 	if input.WindowsUsername != nil {
 		nextWindowsUsername = trim(*input.WindowsUsername)
+		if nextWindowsUsername != publicWindowsUsername(user) {
+			return PublicUser{}, errors.New("暂不支持修改 Windows 用户名")
+		}
 	}
 	if input.Role != nil {
 		nextRole = trim(*input.Role)
 		if !models.IsValidRole(nextRole) {
 			return PublicUser{}, errors.New("角色无效")
+		}
+		if nextRole != user.Role {
+			return PublicUser{}, errors.New("暂不支持修改用户角色")
 		}
 	}
 	if input.Status != nil {
@@ -185,6 +225,18 @@ func (s *Service) UpdateUser(actorUserID string, input UpdateUserInput) (PublicU
 	if input.Password != nil {
 		if *input.Password == "" {
 			return PublicUser{}, errors.New("密码不能为空")
+		}
+		if user.Role == models.RoleUser {
+			windowsUsername := publicWindowsUsername(user)
+			if windowsUsername == "" {
+				return PublicUser{}, errors.New("Windows 用户名不能为空")
+			}
+			if _, err := s.sendAgentCommandWithTimeout("set_windows_user_password", map[string]any{
+				"windowsUsername": windowsUsername,
+				"password":        *input.Password,
+			}, 30*time.Second); err != nil {
+				return PublicUser{}, fmt.Errorf("修改 Windows 密码失败: %w", err)
+			}
 		}
 		passwordHash, err := auth.HashPassword(*input.Password)
 		if err != nil {
@@ -238,10 +290,20 @@ func (s *Service) DeleteUser(actorUserID string, id string) error {
 		return errors.New("agent 未连接，无法删除 Windows 用户")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	if err := s.deleteWindowsUser(ctx, windowsUsername); err != nil {
-		return err
+	if _, err := s.sendAgentCommand(ctx, "cleanup_user_environment", map[string]any{
+		"windowsUsername": windowsUsername,
+	}); err != nil {
+		return fmt.Errorf("清理用户环境失败: %w", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := s.sendAgentCommand(ctx, "delete_windows_user", map[string]any{
+		"windowsUsername": windowsUsername,
+	}); err != nil {
+		return fmt.Errorf("删除 Windows 用户失败: %w", err)
 	}
 
 	return s.withTx(func(tx *gorm.DB) error {

@@ -12,9 +12,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'OnyxHub - 应用分发管理平台',
-  description: 'Windows RemoteApp 远程应用分发管理平台',
-  generator: 'v0.app',
+  title: 'OnyxHub',
+  description: '应用虚拟化管理平台',
   icons: {
     icon: [
       {
