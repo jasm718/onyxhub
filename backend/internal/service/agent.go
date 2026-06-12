@@ -22,6 +22,10 @@ type hostStatusMessage struct {
 	MemoryUsage float64   `json:"memoryUsage"`
 	GPUUsage    float64   `json:"gpuUsage"`
 	DiskUsage   float64   `json:"diskUsage"`
+	DiskTotal   int64     `json:"diskTotal"`
+	DiskUsed    int64     `json:"diskUsed"`
+	DiskFree    int64     `json:"diskFree"`
+	DiskDrive   string    `json:"diskDrive"`
 }
 
 type sessionSnapshotMessage struct {
@@ -68,6 +72,15 @@ func (s *Service) handleHostStatus(raw []byte) error {
 	if msg.ReportedAt.IsZero() {
 		return fmt.Errorf("host_status 缺少 reportedAt")
 	}
+	if msg.CPUUsage < 0 || msg.CPUUsage > 100 || msg.MemoryUsage < 0 || msg.MemoryUsage > 100 || msg.DiskUsage < 0 || msg.DiskUsage > 100 {
+		return fmt.Errorf("host_status 百分比数值无效")
+	}
+	if msg.DiskTotal <= 0 || msg.DiskUsed < 0 || msg.DiskFree < 0 {
+		return fmt.Errorf("host_status 磁盘空间无效: total=%d used=%d free=%d", msg.DiskTotal, msg.DiskUsed, msg.DiskFree)
+	}
+	if trim(msg.DiskDrive) == "" {
+		return fmt.Errorf("host_status 缺少 diskDrive")
+	}
 
 	status := models.AgentStatus{
 		ID:          models.SingleAgentID,
@@ -76,12 +89,31 @@ func (s *Service) handleHostStatus(raw []byte) error {
 		MemoryUsage: msg.MemoryUsage,
 		GPUUsage:    msg.GPUUsage,
 		DiskUsage:   msg.DiskUsage,
+		DiskTotal:   msg.DiskTotal,
+		DiskUsed:    msg.DiskUsed,
+		DiskFree:    msg.DiskFree,
+		DiskDrive:   trim(msg.DiskDrive),
 		ReportedAt:  msg.ReportedAt,
 	}
-	if err := s.db.Save(&status).Error; err != nil {
-		return fmt.Errorf("保存 agent 状态失败: %w", err)
+	metric := models.AgentMetric{
+		Hostname:    status.Hostname,
+		CPUUsage:    status.CPUUsage,
+		MemoryUsage: status.MemoryUsage,
+		DiskUsage:   status.DiskUsage,
+		ReportedAt:  status.ReportedAt,
 	}
-	return nil
+	return s.withTx(func(tx *gorm.DB) error {
+		if err := tx.Save(&status).Error; err != nil {
+			return fmt.Errorf("保存 agent 状态失败: %w", err)
+		}
+		if err := tx.Create(&metric).Error; err != nil {
+			return fmt.Errorf("保存 agent 指标失败: %w", err)
+		}
+		if err := tx.Where("reported_at < ?", status.ReportedAt.Add(-6*time.Hour)).Delete(&models.AgentMetric{}).Error; err != nil {
+			return fmt.Errorf("清理 agent 指标失败: %w", err)
+		}
+		return nil
+	})
 }
 
 func (s *Service) handleSessionSnapshot(raw []byte) error {
@@ -185,12 +217,13 @@ func (s *Service) validSessionSnapshotItem(tx *gorm.DB, hostname string, item se
 	}
 
 	var user models.User
-	if err := tx.Where("windows_username = ?", windowsUsername).First(&user).Error; err != nil {
-		if isNotFound(err) {
-			logAgentError("windowsUsername 找不到用户: %s", windowsUsername)
-			return "", models.User{}, false
-		}
-		logAgentError("查询 windowsUsername 失败: %v", err)
+	result := tx.Where("windows_username = ?", windowsUsername).Limit(1).Find(&user)
+	if result.Error != nil {
+		logAgentError("查询 windowsUsername 失败: %v", result.Error)
+		return "", models.User{}, false
+	}
+	if result.RowsAffected == 0 {
+		logAgentError("windowsUsername 找不到用户: %s", windowsUsername)
 		return "", models.User{}, false
 	}
 

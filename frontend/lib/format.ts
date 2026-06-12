@@ -64,3 +64,41 @@ export function roleLabel(role: string) {
   }
   return role
 }
+
+export function formatBytes(bytes?: number | null) {
+  if (bytes === null || bytes === undefined || bytes < 0) {
+    return "-"
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  let value = bytes
+  let unitIndex = 0
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex++
+  }
+
+  const digits = value >= 10 || unitIndex === 0 ? 0 : 1
+  return `${value.toFixed(digits)} ${units[unitIndex]}`
+}
+
+export function formatDuration(seconds?: number | null) {
+  if (!seconds || seconds < 0) {
+    return "0 分钟"
+  }
+
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) {
+    return `${Math.max(1, minutes)} 分钟`
+  }
+
+  const hours = Math.floor(minutes / 60)
+  const restMinutes = minutes % 60
+  if (hours < 24) {
+    return restMinutes > 0 ? `${hours} 小时 ${restMinutes} 分钟` : `${hours} 小时`
+  }
+
+  const days = Math.floor(hours / 24)
+  const restHours = hours % 24
+  return restHours > 0 ? `${days} 天 ${restHours} 小时` : `${days} 天`
+}

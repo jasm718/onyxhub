@@ -1,16 +1,14 @@
-import { 
-  IconApps, 
-  IconArrowUpRight, 
-  IconNetwork, 
-  IconTrendingUp, 
-  IconUsers,
-  IconDeviceDesktop,
-  IconClock,
+import {
+  IconAlertCircle,
+  IconApps,
+  IconArrowUpRight,
   IconCheck,
-  IconAlertCircle
+  IconClock,
+  IconTrendingUp,
+  IconUsers,
 } from "@tabler/icons-react"
 
-import { Badge } from '@/components/ui/badge'
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardAction,
@@ -18,12 +16,12 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
+} from "@/components/ui/card"
 import type { Overview } from "@/lib/api"
 
 export function SectionCards({ cards }: { cards: Overview["cards"] }) {
   return (
-    <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-3">
       <Card className="@container/card border-border/50 bg-card/50">
         <CardHeader>
           <CardDescription className="flex items-center gap-2">
@@ -49,7 +47,7 @@ export function SectionCards({ cards }: { cards: Overview["cards"] }) {
           </div>
         </CardFooter>
       </Card>
-      
+
       <Card className="@container/card border-border/50 bg-card/50">
         <CardHeader>
           <CardDescription className="flex items-center gap-2">
@@ -75,33 +73,7 @@ export function SectionCards({ cards }: { cards: Overview["cards"] }) {
           </div>
         </CardFooter>
       </Card>
-      
-      <Card className="@container/card border-border/50 bg-card/50">
-        <CardHeader>
-          <CardDescription className="flex items-center gap-2">
-            <IconNetwork className="size-4 text-chart-3" />
-            当前连接数
-          </CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {cards.activeSessions}
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="border-chart-3/30 text-chart-3">
-              <IconDeviceDesktop className="size-3" />
-              {cards.agentOnline ? "在线" : "离线"}
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            当前会话 <IconCheck className="size-4 text-primary" />
-          </div>
-          <div className="text-muted-foreground">
-            agent {cards.agentOnline ? "已连接" : "未连接"}
-          </div>
-        </CardFooter>
-      </Card>
-      
+
       <Card className="@container/card border-border/50 bg-card/50">
         <CardHeader>
           <CardDescription className="flex items-center gap-2">

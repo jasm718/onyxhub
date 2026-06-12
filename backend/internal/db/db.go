@@ -33,6 +33,7 @@ func Open(cfg config.Config) (*gorm.DB, error) {
 		&models.Application{},
 		&models.UserAppAuthorization{},
 		&models.AgentStatus{},
+		&models.AgentMetric{},
 		&models.SystemSettings{},
 		&models.Session{},
 		&models.ActivityLog{},
@@ -41,6 +42,9 @@ func Open(cfg config.Config) (*gorm.DB, error) {
 	}
 
 	if err := dropApplicationCategoryColumn(database); err != nil {
+		return nil, err
+	}
+	if err := dropAgentNetworkColumns(database); err != nil {
 		return nil, err
 	}
 
@@ -67,6 +71,38 @@ func dropApplicationCategoryColumn(database *gorm.DB) error {
 				return fmt.Errorf("删除应用分类字段失败: %w", err)
 			}
 			return nil
+		}
+	}
+	return nil
+}
+
+func dropAgentNetworkColumns(database *gorm.DB) error {
+	if err := dropColumnsIfExist(database, "agent_statuses", "network_rx", "network_tx"); err != nil {
+		return err
+	}
+	if err := dropColumnsIfExist(database, "agent_metrics", "network_rx", "network_tx"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func dropColumnsIfExist(database *gorm.DB, table string, names ...string) error {
+	var columns []tableColumn
+	if err := database.Raw("PRAGMA table_info(" + table + ")").Scan(&columns).Error; err != nil {
+		return fmt.Errorf("读取 %s 表结构失败: %w", table, err)
+	}
+
+	present := make(map[string]bool, len(columns))
+	for _, column := range columns {
+		present[column.Name] = true
+	}
+
+	for _, name := range names {
+		if !present[name] {
+			continue
+		}
+		if err := database.Exec("ALTER TABLE " + table + " DROP COLUMN " + name).Error; err != nil {
+			return fmt.Errorf("删除 %s 表字段 %s 失败: %w", table, name, err)
 		}
 	}
 	return nil

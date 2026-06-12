@@ -109,7 +109,27 @@ type AgentStatus struct {
 	MemoryUsage float64   `json:"memoryUsage"`
 	GPUUsage    float64   `json:"gpuUsage"`
 	DiskUsage   float64   `json:"diskUsage"`
+	DiskTotal   int64     `json:"diskTotal"`
+	DiskUsed    int64     `json:"diskUsed"`
+	DiskFree    int64     `json:"diskFree"`
+	DiskDrive   string    `gorm:"size:16" json:"diskDrive"`
 	ReportedAt  time.Time `gorm:"index" json:"reportedAt"`
+}
+
+type AgentMetric struct {
+	ID          string    `gorm:"primaryKey;size:64" json:"id"`
+	Hostname    string    `gorm:"size:128;not null;index" json:"hostname"`
+	CPUUsage    float64   `json:"cpuUsage"`
+	MemoryUsage float64   `json:"memoryUsage"`
+	DiskUsage   float64   `json:"diskUsage"`
+	ReportedAt  time.Time `gorm:"index" json:"reportedAt"`
+}
+
+func (m *AgentMetric) BeforeCreate(tx *gorm.DB) error {
+	if m.ID == "" {
+		m.ID = NewID("met")
+	}
+	return nil
 }
 
 type SystemSettings struct {

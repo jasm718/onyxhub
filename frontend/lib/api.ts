@@ -62,6 +62,10 @@ export type AgentStatus = {
   memoryUsage: number
   gpuUsage: number
   diskUsage: number
+  diskTotal: number
+  diskUsed: number
+  diskFree: number
+  diskDrive: string
   reportedAt: string
 }
 
@@ -73,12 +77,20 @@ export type Overview = {
     activeApplications: number
     activeSessions: number
     agentOnline: boolean
+    storageDiskTotal: number
+    storageDiskUsed: number
+    storageDiskFree: number
+    storageDiskDrive: string
   }
   agentStatus: AgentStatus | null
-  connectionTrend: Array<{
-    date: string
-    opened: number
-    closed: number
+  agentMetrics: Array<{
+    reportedAt: string
+    cpuUsage: number
+    memoryUsage: number
+  }>
+  connectionDurations: Array<{
+    username: string
+    totalSeconds: number
   }>
   recentActivities: ActivityLog[]
 }
