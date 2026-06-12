@@ -20,8 +20,8 @@ import type { Overview } from "@/lib/api"
 import { formatDuration } from "@/lib/format"
 
 const chartConfig = {
-  totalSeconds: {
-    label: "总连接时间",
+  connectedSeconds: {
+    label: "已连接时长",
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig
@@ -40,16 +40,16 @@ function shortUsername(value: string) {
   return value.length > 10 ? `${value.slice(0, 9)}...` : value
 }
 
-export function ConnectionDurationChart({
+export function ActiveConnectionChart({
   data,
 }: {
-  data: Overview["connectionDurations"]
+  data: Overview["activeConnections"]
 }) {
   const chartData = React.useMemo(
     () =>
       data.map((item) => ({
         username: item.username,
-        totalSeconds: item.totalSeconds,
+        connectedSeconds: item.connectedSeconds,
       })),
     [data]
   )
@@ -57,8 +57,8 @@ export function ConnectionDurationChart({
   return (
     <Card className="@container/card border-border/50 bg-card/50">
       <CardHeader>
-        <CardTitle>连接统计</CardTitle>
-        <CardDescription>按用户统计累计连接时间</CardDescription>
+        <CardTitle>当前活跃连接</CardTitle>
+        <CardDescription>按用户展示当前已连接时长</CardDescription>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         {chartData.length ? (
@@ -66,8 +66,15 @@ export function ConnectionDurationChart({
             config={chartConfig}
             className="aspect-auto h-[300px] w-full"
           >
-            <BarChart data={chartData} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
+            <BarChart
+              data={chartData}
+              margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+            >
+              <CartesianGrid
+                vertical={false}
+                strokeDasharray="3 3"
+                stroke="var(--border)"
+              />
               <XAxis
                 dataKey="username"
                 tickLine={false}
@@ -90,7 +97,9 @@ export function ConnectionDurationChart({
                     labelFormatter={(value) => String(value)}
                     formatter={(value) => (
                       <div className="flex min-w-36 items-center justify-between gap-4">
-                        <span className="text-muted-foreground">总连接时间</span>
+                        <span className="text-muted-foreground">
+                          已连接时长
+                        </span>
                         <span className="font-mono font-medium text-foreground tabular-nums">
                           {formatDuration(Number(value))}
                         </span>
@@ -101,7 +110,7 @@ export function ConnectionDurationChart({
                 }
               />
               <Bar
-                dataKey="totalSeconds"
+                dataKey="connectedSeconds"
                 fill="var(--chart-1)"
                 radius={[4, 4, 0, 0]}
                 isAnimationActive={false}
@@ -110,7 +119,7 @@ export function ConnectionDurationChart({
           </ChartContainer>
         ) : (
           <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-            暂无连接记录
+            暂无活跃连接
           </div>
         )}
       </CardContent>

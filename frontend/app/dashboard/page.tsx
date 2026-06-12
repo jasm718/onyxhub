@@ -4,9 +4,9 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { AgentMetricCharts } from "@/components/agent-metric-charts"
-import { ConnectionDurationChart } from "@/components/chart-area-interactive"
+import { ActiveConnectionChart } from "@/components/chart-area-interactive"
+import { ConnectionDurationStats } from "@/components/connection-duration-stats"
 import { DashboardShell } from "@/components/dashboard-shell"
-import { RecentActivity } from "@/components/recent-activity"
 import { SectionCards } from "@/components/section-cards"
 import { Card, CardContent } from "@/components/ui/card"
 import { api, type Overview } from "@/lib/api"
@@ -62,10 +62,10 @@ export default function Page() {
                 <AgentMetricCharts metrics={overview.agentMetrics} cards={overview.cards} />
                 <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-3 lg:px-6">
                   <div className="lg:col-span-2">
-                    <ConnectionDurationChart data={overview.connectionDurations} />
+                    <ActiveConnectionChart data={overview.activeConnections} />
                   </div>
                   <div>
-                    <RecentActivity activities={overview.recentActivities} />
+                    <ConnectionDurationStats stats={overview.connectionDurationStats} />
                   </div>
                 </div>
               </>

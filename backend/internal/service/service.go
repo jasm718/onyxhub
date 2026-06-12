@@ -16,6 +16,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const timeFormatRFC3339 = time.RFC3339Nano
+
 type Service struct {
 	db        *gorm.DB
 	jwtSecret string
@@ -111,8 +113,34 @@ func isNotFound(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
-func logAgentError(format string, args ...any) {
-	log.Printf("agent message ignored: "+format, args...)
+func (s *Service) reportAgentIssue(tx *gorm.DB, level string, issueType string, format string, args ...any) {
+	message := fmt.Sprintf(format, args...)
+	level = trim(level)
+	if level == "" {
+		level = "error"
+	}
+	issueType = trim(issueType)
+	if issueType == "" {
+		issueType = "agent_issue"
+	}
+
+	log.Printf("agent issue[%s] %s: %s", level, issueType, message)
+	if s == nil || s.db == nil {
+		return
+	}
+
+	issue := models.AgentIssue{
+		Level:   level,
+		Type:    issueType,
+		Message: message,
+	}
+	db := s.db
+	if tx != nil {
+		db = tx
+	}
+	if err := db.Create(&issue).Error; err != nil {
+		log.Printf("记录 agent 异常失败: %v", err)
+	}
 }
 
 func (s *Service) withTx(fn func(tx *gorm.DB) error) error {

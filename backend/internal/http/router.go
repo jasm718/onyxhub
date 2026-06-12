@@ -56,6 +56,7 @@ func NewRouter(svc *service.Service, jwtSecret string, agent *agentws.Manager, c
 		admin.POST("/settings/system", server.updateSystemSettings)
 
 		admin.GET("/overview", server.overview)
+		admin.GET("/notifications", server.notifications)
 	}
 
 	client := router.Group("/api/client")
@@ -302,6 +303,15 @@ func (s *Server) overview(c *gin.Context) {
 		return
 	}
 	ok(c, overview)
+}
+
+func (s *Server) notifications(c *gin.Context) {
+	notifications, err := s.service.GetNotifications()
+	if err != nil {
+		fail(c, http.StatusOK, err.Error())
+		return
+	}
+	ok(c, notifications)
 }
 
 func (s *Server) getSystemSettings(c *gin.Context) {

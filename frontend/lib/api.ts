@@ -55,6 +55,14 @@ export type ActivityLog = {
   createdAt: string
 }
 
+export type AgentIssue = {
+  id: string
+  level: string
+  type: string
+  message: string
+  createdAt: string
+}
+
 export type AgentStatus = {
   id: string
   hostname: string
@@ -88,10 +96,24 @@ export type Overview = {
     cpuUsage: number
     memoryUsage: number
   }>
-  connectionDurations: Array<{
+  activeConnections: Array<{
     username: string
-    totalSeconds: number
+    connectedSeconds: number
   }>
+  connectionDurationStats: {
+    weekly: Array<{
+      username: string
+      totalHours: number
+    }>
+    monthly: Array<{
+      username: string
+      totalHours: number
+    }>
+  }
+}
+
+export type Notifications = {
+  exceptions: AgentIssue[]
   recentActivities: ActivityLog[]
 }
 
@@ -235,6 +257,9 @@ export const api = {
   },
   overview() {
     return request<Overview>("/api/admin/overview")
+  },
+  notifications() {
+    return request<Notifications>("/api/admin/notifications")
   },
   users() {
     return request<User[]>("/api/admin/users")

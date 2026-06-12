@@ -22,7 +22,7 @@ import {
 import type { ActivityLog } from "@/lib/api"
 import { formatRelativeTime } from "@/lib/format"
 
-function getActivityMeta(type: string) {
+export function getActivityMeta(type: string) {
   if (type === "session_opened") {
     return { icon: IconLogin, color: "text-primary" }
   }
@@ -50,6 +50,39 @@ function getActivityMeta(type: string) {
   return { icon: IconSettings, color: "text-muted-foreground" }
 }
 
+export function ActivityList({ activities }: { activities: ActivityLog[] }) {
+  return (
+    <div className="space-y-4">
+      {activities.length ? (
+        activities.map((activity) => {
+          const meta = getActivityMeta(activity.type)
+          return (
+            <div key={activity.id} className="flex items-center gap-4">
+              <div
+                className={`flex size-9 items-center justify-center rounded-lg bg-secondary ${meta.color}`}
+              >
+                <meta.icon className="size-4" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="line-clamp-2 text-sm font-medium leading-snug">
+                  {activity.message}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatRelativeTime(activity.createdAt)}
+                </p>
+              </div>
+            </div>
+          )
+        })
+      ) : (
+        <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+          暂无活动记录
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function RecentActivity({ activities }: { activities: ActivityLog[] }) {
   return (
     <Card className="border-border/50 bg-card/50">
@@ -58,34 +91,7 @@ export function RecentActivity({ activities }: { activities: ActivityLog[] }) {
         <CardDescription>系统最近的操作记录</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {activities.length ? (
-            activities.map((activity) => {
-              const meta = getActivityMeta(activity.type)
-              return (
-                <div key={activity.id} className="flex items-center gap-4">
-                  <div
-                    className={`flex size-9 items-center justify-center rounded-lg bg-secondary ${meta.color}`}
-                  >
-                    <meta.icon className="size-4" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {activity.message}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatRelativeTime(activity.createdAt)}
-                    </p>
-                  </div>
-                </div>
-              )
-            })
-          ) : (
-            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-              暂无活动记录
-            </div>
-          )}
-        </div>
+        <ActivityList activities={activities} />
       </CardContent>
     </Card>
   )

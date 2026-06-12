@@ -43,21 +43,21 @@ type sessionSnapshotItem struct {
 func (s *Service) HandleAgentMessage(raw []byte) {
 	var env agentEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
-		logAgentError("json 解析失败: %v", err)
+		s.reportAgentIssue(nil, "error", "json_parse", "json 解析失败: %v", err)
 		return
 	}
 
 	switch env.Type {
 	case "host_status":
 		if err := s.handleHostStatus(raw); err != nil {
-			logAgentError("%v", err)
+			s.reportAgentIssue(nil, "error", "host_status", "%v", err)
 		}
 	case "session_snapshot":
 		if err := s.handleSessionSnapshot(raw); err != nil {
-			logAgentError("%v", err)
+			s.reportAgentIssue(nil, "error", "session_snapshot", "%v", err)
 		}
 	default:
-		logAgentError("未知消息类型: %s", env.Type)
+		s.reportAgentIssue(nil, "warn", "unknown_type", "未知消息类型: %s", env.Type)
 	}
 }
 
@@ -203,27 +203,27 @@ func (s *Service) handleSessionSnapshot(raw []byte) error {
 
 func (s *Service) validSessionSnapshotItem(tx *gorm.DB, hostname string, item sessionSnapshotItem) (string, models.User, bool) {
 	if item.WindowsSessionID == nil {
-		logAgentError("session_snapshot 缺少 windowsSessionId")
+		s.reportAgentIssue(tx, "warn", "session_snapshot", "session_snapshot 缺少 windowsSessionId")
 		return "", models.User{}, false
 	}
 	windowsUsername := trim(item.WindowsUsername)
 	if windowsUsername == "" {
-		logAgentError("session_snapshot 缺少 windowsUsername")
+		s.reportAgentIssue(tx, "warn", "session_snapshot", "session_snapshot 缺少 windowsUsername")
 		return "", models.User{}, false
 	}
 	if item.ConnectedAt.IsZero() {
-		logAgentError("session_snapshot 缺少 connectedAt")
+		s.reportAgentIssue(tx, "warn", "session_snapshot", "session_snapshot 缺少 connectedAt")
 		return "", models.User{}, false
 	}
 
 	var user models.User
 	result := tx.Where("windows_username = ?", windowsUsername).Limit(1).Find(&user)
 	if result.Error != nil {
-		logAgentError("查询 windowsUsername 失败: %v", result.Error)
+		s.reportAgentIssue(tx, "error", "session_snapshot", "查询 windowsUsername 失败: %v", result.Error)
 		return "", models.User{}, false
 	}
 	if result.RowsAffected == 0 {
-		logAgentError("windowsUsername 找不到用户: %s", windowsUsername)
+		s.reportAgentIssue(tx, "warn", "session_snapshot", "windowsUsername 找不到用户: %s", windowsUsername)
 		return "", models.User{}, false
 	}
 

@@ -1,8 +1,8 @@
 "use client"
 
 import { usePathname } from 'next/navigation'
-import { IconBell, IconSearch } from '@tabler/icons-react'
-import { Button } from '@/components/ui/button'
+import { IconSearch } from '@tabler/icons-react'
+import { NotificationCenter } from '@/components/notification-center'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -28,7 +28,7 @@ export function SiteHeader() {
         <SidebarTrigger className="-ml-1" />
         <Separator
           orientation="vertical"
-          className="mx-2 data-[orientation=vertical]:h-4"
+          className="mx-2 self-center data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center"
         />
         <h1 className="text-base font-medium">{title}</h1>
         <div className="ml-auto flex items-center gap-3">
@@ -40,11 +40,7 @@ export function SiteHeader() {
             />
           </div>
           <ThemeToggle />
-          <Button variant="ghost" size="icon" className="relative">
-            <IconBell className="size-5" />
-            <span className="absolute right-1 top-1 size-2 rounded-full bg-primary" />
-            <span className="sr-only">通知</span>
-          </Button>
+          <NotificationCenter />
         </div>
       </div>
     </header>

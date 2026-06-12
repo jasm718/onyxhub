@@ -2,19 +2,19 @@ package service
 
 import (
 	"fmt"
+	"math"
+	"sort"
 	"time"
 
 	"onyxhub/backend/internal/models"
 )
 
-const timeFormatRFC3339 = time.RFC3339Nano
-
 type Overview struct {
-	Cards               OverviewCards              `json:"cards"`
-	AgentStatus         *models.AgentStatus        `json:"agentStatus"`
-	AgentMetrics        []AgentMetricPoint         `json:"agentMetrics"`
-	ConnectionDurations []ConnectionDurationByUser `json:"connectionDurations"`
-	RecentActivities    []models.ActivityLog       `json:"recentActivities"`
+	Cards                   OverviewCards           `json:"cards"`
+	AgentStatus             *models.AgentStatus     `json:"agentStatus"`
+	AgentMetrics            []AgentMetricPoint      `json:"agentMetrics"`
+	ActiveConnections       []ActiveConnectionPoint `json:"activeConnections"`
+	ConnectionDurationStats ConnectionDurationStats `json:"connectionDurationStats"`
 }
 
 type OverviewCards struct {
@@ -36,9 +36,24 @@ type AgentMetricPoint struct {
 	MemoryUsage float64   `json:"memoryUsage"`
 }
 
-type ConnectionDurationByUser struct {
-	Username     string `json:"username"`
-	TotalSeconds int64  `json:"totalSeconds"`
+type ActiveConnectionPoint struct {
+	Username         string `json:"username"`
+	ConnectedSeconds int64  `json:"connectedSeconds"`
+}
+
+type ConnectionDurationStats struct {
+	Weekly  []ConnectionDurationPoint `json:"weekly"`
+	Monthly []ConnectionDurationPoint `json:"monthly"`
+}
+
+type ConnectionDurationPoint struct {
+	Username   string  `json:"username"`
+	TotalHours float64 `json:"totalHours"`
+}
+
+type OverviewNotifications struct {
+	Exceptions       []models.AgentIssue  `json:"exceptions"`
+	RecentActivities []models.ActivityLog `json:"recentActivities"`
 }
 
 func (s *Service) GetOverview() (Overview, error) {
@@ -78,19 +93,38 @@ func (s *Service) GetOverview() (Overview, error) {
 	}
 	overview.AgentMetrics = metrics
 
-	durations, err := s.connectionDurations()
+	activeConnections, err := s.activeConnections()
 	if err != nil {
 		return Overview{}, err
 	}
-	overview.ConnectionDurations = durations
+	overview.ActiveConnections = activeConnections
 
-	var logs []models.ActivityLog
-	if err := s.db.Order("created_at desc").Limit(10).Find(&logs).Error; err != nil {
-		return Overview{}, fmt.Errorf("查询最近活动失败: %w", err)
+	durationStats, err := s.connectionDurationStats()
+	if err != nil {
+		return Overview{}, err
 	}
-	overview.RecentActivities = logs
+	overview.ConnectionDurationStats = durationStats
 
 	return overview, nil
+}
+
+func (s *Service) GetNotifications() (OverviewNotifications, error) {
+	since := s.now().AddDate(0, 0, -7)
+
+	var exceptions []models.AgentIssue
+	if err := s.db.Where("created_at >= ?", since).Order("created_at desc").Limit(50).Find(&exceptions).Error; err != nil {
+		return OverviewNotifications{}, fmt.Errorf("查询异常信息失败: %w", err)
+	}
+
+	var activities []models.ActivityLog
+	if err := s.db.Where("created_at >= ?", since).Order("created_at desc").Limit(50).Find(&activities).Error; err != nil {
+		return OverviewNotifications{}, fmt.Errorf("查询最近活动失败: %w", err)
+	}
+
+	return OverviewNotifications{
+		Exceptions:       exceptions,
+		RecentActivities: activities,
+	}, nil
 }
 
 func (s *Service) agentMetrics() ([]AgentMetricPoint, error) {
@@ -111,33 +145,155 @@ func (s *Service) agentMetrics() ([]AgentMetricPoint, error) {
 	return items, nil
 }
 
-func (s *Service) connectionDurations() ([]ConnectionDurationByUser, error) {
+func (s *Service) activeConnections() ([]ActiveConnectionPoint, error) {
 	now := s.now()
-	type durationRow struct {
-		Username     string `gorm:"column:username"`
-		TotalSeconds int64  `gorm:"column:total_seconds"`
+
+	type row struct {
+		Username    string    `gorm:"column:username"`
+		ConnectedAt time.Time `gorm:"column:connected_at"`
 	}
 
-	var rows []durationRow
+	var rows []row
 	if err := s.db.Table("sessions").
-		Select(`
-users.username AS username,
-SUM(MAX(0, strftime('%s', COALESCE(sessions.disconnected_at, ?)) - strftime('%s', sessions.connected_at))) AS total_seconds
-`, now).
+		Select("users.username AS username, sessions.connected_at AS connected_at").
 		Joins("JOIN users ON users.id = sessions.user_id").
-		Group("users.username").
-		Order("total_seconds desc").
-		Limit(12).
+		Where("sessions.status = ?", models.SessionStatusActive).
 		Scan(&rows).Error; err != nil {
-		return nil, fmt.Errorf("统计用户连接总时长失败: %w", err)
+		return nil, fmt.Errorf("查询当前活跃连接失败: %w", err)
 	}
 
-	items := make([]ConnectionDurationByUser, 0, len(rows))
+	totals := make(map[string]int64)
 	for _, row := range rows {
-		items = append(items, ConnectionDurationByUser{
-			Username:     row.Username,
-			TotalSeconds: row.TotalSeconds,
+		seconds := int64(now.Sub(row.ConnectedAt).Seconds())
+		if seconds < 0 {
+			seconds = 0
+		}
+		totals[row.Username] += seconds
+	}
+
+	items := make([]ActiveConnectionPoint, 0, len(totals))
+	for username, seconds := range totals {
+		items = append(items, ActiveConnectionPoint{
+			Username:         username,
+			ConnectedSeconds: seconds,
 		})
 	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].ConnectedSeconds == items[j].ConnectedSeconds {
+			return items[i].Username < items[j].Username
+		}
+		return items[i].ConnectedSeconds > items[j].ConnectedSeconds
+	})
+	if len(items) > 12 {
+		items = items[:12]
+	}
 	return items, nil
+}
+
+func (s *Service) connectionDurationStats() (ConnectionDurationStats, error) {
+	now := s.now()
+	weekStart := weekStart(now)
+	monthStart := monthStart(now)
+	earliestStart := weekStart
+	if monthStart.Before(earliestStart) {
+		earliestStart = monthStart
+	}
+
+	type row struct {
+		Username       string     `gorm:"column:username"`
+		ConnectedAt    time.Time  `gorm:"column:connected_at"`
+		DisconnectedAt *time.Time `gorm:"column:disconnected_at"`
+	}
+
+	var rows []row
+	if err := s.db.Table("sessions").
+		Select("users.username AS username, sessions.connected_at AS connected_at, sessions.disconnected_at AS disconnected_at").
+		Joins("JOIN users ON users.id = sessions.user_id").
+		Where("sessions.connected_at < ?", now).
+		Where("(sessions.disconnected_at IS NULL OR sessions.disconnected_at >= ?)", earliestStart).
+		Scan(&rows).Error; err != nil {
+		return ConnectionDurationStats{}, fmt.Errorf("查询连接时长失败: %w", err)
+	}
+
+	weeklyTotals := make(map[string]float64)
+	monthlyTotals := make(map[string]float64)
+	for _, row := range rows {
+		addConnectionDuration(weeklyTotals, row.Username, row.ConnectedAt, row.DisconnectedAt, weekStart, now)
+		addConnectionDuration(monthlyTotals, row.Username, row.ConnectedAt, row.DisconnectedAt, monthStart, now)
+	}
+
+	return ConnectionDurationStats{
+		Weekly:  topConnectionDurationPoints(weeklyTotals, 12),
+		Monthly: topConnectionDurationPoints(monthlyTotals, 12),
+	}, nil
+}
+
+func addConnectionDuration(
+	totals map[string]float64,
+	username string,
+	connectedAt time.Time,
+	disconnectedAt *time.Time,
+	start time.Time,
+	now time.Time,
+) {
+	if connectedAt.Before(start) {
+		connectedAt = start
+	}
+	endedAt := now
+	if disconnectedAt != nil && disconnectedAt.Before(endedAt) {
+		endedAt = *disconnectedAt
+	}
+	if endedAt.After(now) {
+		endedAt = now
+	}
+	if endedAt.Before(connectedAt) {
+		return
+	}
+
+	hours := endedAt.Sub(connectedAt).Hours()
+	if hours <= 0 {
+		return
+	}
+	totals[username] += hours
+}
+
+func topConnectionDurationPoints(totals map[string]float64, limit int) []ConnectionDurationPoint {
+	items := make([]ConnectionDurationPoint, 0, len(totals))
+	for username, hours := range totals {
+		items = append(items, ConnectionDurationPoint{
+			Username:   username,
+			TotalHours: roundOneDecimal(hours),
+		})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].TotalHours == items[j].TotalHours {
+			return items[i].Username < items[j].Username
+		}
+		return items[i].TotalHours > items[j].TotalHours
+	})
+	if limit > 0 && len(items) > limit {
+		items = items[:limit]
+	}
+	return items
+}
+
+func weekStart(now time.Time) time.Time {
+	loc := now.Location()
+	normalized := time.Date(now.In(loc).Year(), now.In(loc).Month(), now.In(loc).Day(), 0, 0, 0, 0, loc)
+	offset := (int(normalized.Weekday()) + 6) % 7
+	return normalized.AddDate(0, 0, -offset)
+}
+
+func monthStart(now time.Time) time.Time {
+	loc := now.Location()
+	return time.Date(now.In(loc).Year(), now.In(loc).Month(), 1, 0, 0, 0, 0, loc)
+}
+
+func roundOneDecimal(value float64) float64 {
+	if value < 0 {
+		return 0
+	}
+	return math.Round(value*10) / 10
 }

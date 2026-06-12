@@ -43,6 +43,7 @@ const (
 	ActivitySessionOpened         = "session_opened"
 	ActivitySessionClosed         = "session_closed"
 	ActivitySystemSettingsUpdated = "system_settings_updated"
+	ActivityAgentIssue            = "agent_issue"
 
 	SingleAgentID          = "single_agent"
 	SingleSystemSettingsID = "system_settings"
@@ -185,6 +186,21 @@ type ActivityLog struct {
 func (l *ActivityLog) BeforeCreate(tx *gorm.DB) error {
 	if l.ID == "" {
 		l.ID = NewID("log")
+	}
+	return nil
+}
+
+type AgentIssue struct {
+	ID        string    `gorm:"primaryKey;size:64" json:"id"`
+	Level     string    `gorm:"size:32;not null;index" json:"level"`
+	Type      string    `gorm:"size:64;not null;index" json:"type"`
+	Message   string    `gorm:"size:512;not null" json:"message"`
+	CreatedAt time.Time `gorm:"index" json:"createdAt"`
+}
+
+func (i *AgentIssue) BeforeCreate(tx *gorm.DB) error {
+	if i.ID == "" {
+		i.ID = NewID("iss")
 	}
 	return nil
 }

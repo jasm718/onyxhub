@@ -37,6 +37,7 @@ func Open(cfg config.Config) (*gorm.DB, error) {
 		&models.SystemSettings{},
 		&models.Session{},
 		&models.ActivityLog{},
+		&models.AgentIssue{},
 	); err != nil {
 		return nil, fmt.Errorf("数据库迁移失败: %w", err)
 	}
