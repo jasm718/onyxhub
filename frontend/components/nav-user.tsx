@@ -113,7 +113,6 @@ export function NavUser({
         id: authUser.id,
         username: authUser.username,
         displayName: authUser.displayName,
-        windowsUsername: authUser.windowsUsername,
         role: authUser.role,
         status: authUser.status,
         password: newPassword,

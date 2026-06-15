@@ -7,7 +7,13 @@ import { AuthGuard } from "@/components/auth-guard"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({
+  children,
+  insetClassName,
+}: {
+  children: React.ReactNode
+  insetClassName?: string
+}) {
   return (
     <AuthGuard>
       <SidebarProvider
@@ -19,7 +25,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         }
       >
         <AppSidebar variant="inset" />
-        <SidebarInset>
+        <SidebarInset className={insetClassName}>
           <SiteHeader />
           {children}
         </SidebarInset>

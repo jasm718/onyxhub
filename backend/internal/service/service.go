@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"onyxhub/backend/internal/auth"
@@ -19,10 +20,12 @@ import (
 const timeFormatRFC3339 = time.RFC3339Nano
 
 type Service struct {
-	db        *gorm.DB
-	jwtSecret string
-	agent     *agentws.Manager
-	now       func() time.Time
+	db                    *gorm.DB
+	jwtSecret             string
+	agent                 *agentws.Manager
+	now                   func() time.Time
+	agentHeartbeatMu      sync.RWMutex
+	agentFirstHeartbeatAt time.Time
 }
 
 func New(database *gorm.DB, jwtSecret string, agent *agentws.Manager) *Service {
@@ -149,6 +152,29 @@ func (s *Service) withTx(fn func(tx *gorm.DB) error) error {
 
 func (s *Service) agentConnected() bool {
 	return s.agent != nil && s.agent.IsConnected()
+}
+
+func (s *Service) recordAgentHeartbeat(at time.Time) {
+	s.agentHeartbeatMu.Lock()
+	defer s.agentHeartbeatMu.Unlock()
+	if s.agentFirstHeartbeatAt.IsZero() {
+		s.agentFirstHeartbeatAt = at
+	}
+}
+
+func (s *Service) agentUptimeSeconds() int64 {
+	s.agentHeartbeatMu.RLock()
+	startedAt := s.agentFirstHeartbeatAt
+	s.agentHeartbeatMu.RUnlock()
+	if startedAt.IsZero() || !s.agentConnected() {
+		return 0
+	}
+
+	seconds := int64(s.now().Sub(startedAt).Seconds())
+	if seconds < 0 {
+		return 0
+	}
+	return seconds
 }
 
 func (s *Service) sendAgentCommand(ctx context.Context, name string, payload any) (agentws.CommandResult, error) {

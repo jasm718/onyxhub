@@ -9,6 +9,8 @@ import (
 	"onyxhub/backend/internal/models"
 )
 
+const agentMetricWindow = 5 * time.Minute
+
 type Overview struct {
 	Cards                   OverviewCards           `json:"cards"`
 	AgentStatus             *models.AgentStatus     `json:"agentStatus"`
@@ -24,6 +26,7 @@ type OverviewCards struct {
 	ActiveApplications int64  `json:"activeApplications"`
 	ActiveSessions     int64  `json:"activeSessions"`
 	AgentOnline        bool   `json:"agentOnline"`
+	AgentUptimeSeconds int64  `json:"agentUptimeSeconds"`
 	StorageDiskTotal   int64  `json:"storageDiskTotal"`
 	StorageDiskUsed    int64  `json:"storageDiskUsed"`
 	StorageDiskFree    int64  `json:"storageDiskFree"`
@@ -37,8 +40,9 @@ type AgentMetricPoint struct {
 }
 
 type ActiveConnectionPoint struct {
-	Username         string `json:"username"`
-	ConnectedSeconds int64  `json:"connectedSeconds"`
+	Username         string    `json:"username"`
+	ConnectedSeconds int64     `json:"connectedSeconds"`
+	ConnectedAt      time.Time `json:"connectedAt"`
 }
 
 type ConnectionDurationStats struct {
@@ -52,8 +56,28 @@ type ConnectionDurationPoint struct {
 }
 
 type OverviewNotifications struct {
-	Exceptions       []models.AgentIssue  `json:"exceptions"`
-	RecentActivities []models.ActivityLog `json:"recentActivities"`
+	Exceptions           []models.AgentIssue `json:"exceptions"`
+	UnreadExceptionCount int64               `json:"unreadExceptionCount"`
+}
+
+type ActivityLogItem struct {
+	ID         string     `json:"id"`
+	Kind       string     `json:"kind"`
+	Level      string     `json:"level"`
+	Type       string     `json:"type"`
+	ActorType  string     `json:"actorType"`
+	TargetType string     `json:"targetType"`
+	Message    string     `json:"message"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	ReadAt     *time.Time `json:"readAt,omitempty"`
+}
+
+type ActivityLogsResult struct {
+	Items []ActivityLogItem `json:"items"`
+}
+
+type MarkAgentIssuesReadResult struct {
+	Updated int64 `json:"updated"`
 }
 
 func (s *Service) GetOverview() (Overview, error) {
@@ -75,6 +99,7 @@ func (s *Service) GetOverview() (Overview, error) {
 		return Overview{}, fmt.Errorf("统计在线会话失败: %w", err)
 	}
 	overview.Cards.AgentOnline = s.agentConnected()
+	overview.Cards.AgentUptimeSeconds = s.agentUptimeSeconds()
 
 	var agentStatus models.AgentStatus
 	if err := s.db.First(&agentStatus, "id = ?", models.SingleAgentID).Error; err == nil {
@@ -116,26 +141,95 @@ func (s *Service) GetNotifications() (OverviewNotifications, error) {
 		return OverviewNotifications{}, fmt.Errorf("查询异常信息失败: %w", err)
 	}
 
-	var activities []models.ActivityLog
-	if err := s.db.Where("created_at >= ?", since).Order("created_at desc").Limit(50).Find(&activities).Error; err != nil {
-		return OverviewNotifications{}, fmt.Errorf("查询最近活动失败: %w", err)
+	var unreadCount int64
+	if err := s.db.Model(&models.AgentIssue{}).Where("read_at IS NULL").Count(&unreadCount).Error; err != nil {
+		return OverviewNotifications{}, fmt.Errorf("统计未读异常失败: %w", err)
 	}
 
 	return OverviewNotifications{
-		Exceptions:       exceptions,
-		RecentActivities: activities,
+		Exceptions:           exceptions,
+		UnreadExceptionCount: unreadCount,
 	}, nil
+}
+
+func (s *Service) ListActivityLogs(filter string) (ActivityLogsResult, error) {
+	filter = trim(filter)
+	if filter == "" {
+		filter = "all"
+	}
+	if filter != "all" && filter != "exceptions" && filter != "activities" {
+		return ActivityLogsResult{}, fmt.Errorf("活动日志筛选类型无效: %s", filter)
+	}
+
+	items := make([]ActivityLogItem, 0, 100)
+	if filter != "activities" {
+		var exceptions []models.AgentIssue
+		if err := s.db.Order("created_at desc").Limit(100).Find(&exceptions).Error; err != nil {
+			return ActivityLogsResult{}, fmt.Errorf("查询异常日志失败: %w", err)
+		}
+		for _, item := range exceptions {
+			items = append(items, ActivityLogItem{
+				ID:         item.ID,
+				Kind:       "exception",
+				Level:      item.Level,
+				Type:       item.Type,
+				ActorType:  models.ActorTypeSystem,
+				TargetType: models.TargetTypeSystem,
+				Message:    item.Message,
+				CreatedAt:  item.CreatedAt,
+				ReadAt:     item.ReadAt,
+			})
+		}
+	}
+	if filter != "exceptions" {
+		var activities []models.ActivityLog
+		if err := s.db.Order("created_at desc").Limit(100).Find(&activities).Error; err != nil {
+			return ActivityLogsResult{}, fmt.Errorf("查询活动日志失败: %w", err)
+		}
+		for _, item := range activities {
+			items = append(items, ActivityLogItem{
+				ID:         item.ID,
+				Kind:       "activity",
+				Level:      "info",
+				Type:       item.Type,
+				ActorType:  item.ActorType,
+				TargetType: item.TargetType,
+				Message:    item.Message,
+				CreatedAt:  item.CreatedAt,
+			})
+		}
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+	if len(items) > 100 {
+		items = items[:100]
+	}
+
+	return ActivityLogsResult{Items: items}, nil
+}
+
+func (s *Service) MarkAllAgentIssuesRead() (MarkAgentIssuesReadResult, error) {
+	now := s.now()
+	result := s.db.Model(&models.AgentIssue{}).
+		Where("read_at IS NULL").
+		Update("read_at", now)
+	if result.Error != nil {
+		return MarkAgentIssuesReadResult{}, fmt.Errorf("标记异常已读失败: %w", result.Error)
+	}
+	return MarkAgentIssuesReadResult{Updated: result.RowsAffected}, nil
 }
 
 func (s *Service) agentMetrics() ([]AgentMetricPoint, error) {
 	var rows []models.AgentMetric
-	if err := s.db.Order("reported_at desc").Limit(30).Find(&rows).Error; err != nil {
+	since := s.now().UTC().Add(-agentMetricWindow)
+	if err := s.db.Where("reported_at >= ?", since).Order("reported_at asc").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("查询 agent 指标失败: %w", err)
 	}
 
 	items := make([]AgentMetricPoint, 0, len(rows))
-	for i := len(rows) - 1; i >= 0; i-- {
-		row := rows[i]
+	for _, row := range rows {
 		items = append(items, AgentMetricPoint{
 			ReportedAt:  row.ReportedAt,
 			CPUUsage:    row.CPUUsage,
@@ -162,20 +256,16 @@ func (s *Service) activeConnections() ([]ActiveConnectionPoint, error) {
 		return nil, fmt.Errorf("查询当前活跃连接失败: %w", err)
 	}
 
-	totals := make(map[string]int64)
+	items := make([]ActiveConnectionPoint, 0, len(rows))
 	for _, row := range rows {
 		seconds := int64(now.Sub(row.ConnectedAt).Seconds())
 		if seconds < 0 {
 			seconds = 0
 		}
-		totals[row.Username] += seconds
-	}
-
-	items := make([]ActiveConnectionPoint, 0, len(totals))
-	for username, seconds := range totals {
 		items = append(items, ActiveConnectionPoint{
-			Username:         username,
+			Username:         row.Username,
 			ConnectedSeconds: seconds,
+			ConnectedAt:      row.ConnectedAt,
 		})
 	}
 

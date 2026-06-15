@@ -61,6 +61,7 @@ export type AgentIssue = {
   type: string
   message: string
   createdAt: string
+  readAt?: string
 }
 
 export type AgentStatus = {
@@ -85,6 +86,7 @@ export type Overview = {
     activeApplications: number
     activeSessions: number
     agentOnline: boolean
+    agentUptimeSeconds: number
     storageDiskTotal: number
     storageDiskUsed: number
     storageDiskFree: number
@@ -99,6 +101,7 @@ export type Overview = {
   activeConnections: Array<{
     username: string
     connectedSeconds: number
+    connectedAt: string
   }>
   connectionDurationStats: {
     weekly: Array<{
@@ -114,7 +117,27 @@ export type Overview = {
 
 export type Notifications = {
   exceptions: AgentIssue[]
-  recentActivities: ActivityLog[]
+  unreadExceptionCount: number
+}
+
+export type ActivityLogItem = {
+  id: string
+  kind: "activity" | "exception"
+  level: "info" | "warn" | "error" | string
+  type: string
+  actorType: string
+  targetType: string
+  message: string
+  createdAt: string
+  readAt?: string
+}
+
+export type ActivityLogsResult = {
+  items: ActivityLogItem[]
+}
+
+export type MarkNotificationsReadResult = {
+  updated: number
 }
 
 export type LoginResult = {
@@ -125,7 +148,6 @@ export type LoginResult = {
 export type CreateUserInput = {
   username: string
   displayName: string
-  windowsUsername: string
   password: string
   role: "admin" | "user"
   status: "active" | "disabled"
@@ -135,7 +157,6 @@ export type UpdateUserInput = {
   id: string
   username: string
   displayName: string
-  windowsUsername: string
   password?: string
   role: "admin" | "user"
   status: "active" | "disabled"
@@ -260,6 +281,13 @@ export const api = {
   },
   notifications() {
     return request<Notifications>("/api/admin/notifications")
+  },
+  markNotificationsRead() {
+    return post<MarkNotificationsReadResult>("/api/admin/notifications/mark-all-read", {})
+  },
+  activityLogs(filter?: "all" | "exceptions" | "activities") {
+    const query = filter ? `?filter=${encodeURIComponent(filter)}` : ""
+    return request<ActivityLogsResult>(`/api/admin/activity-logs${query}`)
   },
   users() {
     return request<User[]>("/api/admin/users")

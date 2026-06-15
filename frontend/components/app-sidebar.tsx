@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import {
   IconApps,
   IconChartBar,
+  IconHistory,
   IconKey,
   IconLock,
   IconServer,
@@ -50,6 +51,11 @@ const data = {
       url: "/dashboard/users",
       icon: IconUsers,
     },
+    {
+      title: "活动日志",
+      url: "/dashboard/activity-logs",
+      icon: IconHistory,
+    },
   ],
   navSettings: [
     {
@@ -85,10 +91,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              className="data-[slot=sidebar-menu-button]:p-1.5!"
+              className="h-10 data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <Link href="/dashboard" className="flex items-center gap-2">
-                <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
+                <div className="flex size-8 items-center justify-center rounded-md bg-primary">
                   <IconLock className="size-5 text-primary-foreground" />
                 </div>
                 <div className="flex flex-col">
@@ -104,13 +110,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup>
           <SidebarGroupLabel>管理</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {data.navMain.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild 
                     tooltip={item.title}
                     isActive={pathname === item.url}
+                    className="h-8 hover:bg-primary/10 hover:text-foreground active:bg-primary/10 active:text-foreground data-[active=true]:bg-primary/10 data-[active=true]:text-foreground"
                   >
                     <Link href={item.url}>
                       <item.icon />
@@ -126,13 +133,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup>
           <SidebarGroupLabel>设置</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {data.navSettings.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild 
                     tooltip={item.title}
                     isActive={pathname === item.url}
+                    className="h-8 hover:bg-primary/10 hover:text-foreground active:bg-primary/10 active:text-foreground data-[active=true]:bg-primary/10 data-[active=true]:text-foreground"
                   >
                     <Link href={item.url}>
                       <item.icon />

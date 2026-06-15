@@ -4,7 +4,7 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { AgentMetricCharts } from "@/components/agent-metric-charts"
-import { ActiveConnectionChart } from "@/components/chart-area-interactive"
+import { ActiveConnectionTable } from "@/components/chart-area-interactive"
 import { ConnectionDurationStats } from "@/components/connection-duration-stats"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { SectionCards } from "@/components/section-cards"
@@ -44,10 +44,10 @@ export default function Page() {
   }, [])
 
   return (
-    <DashboardShell>
-      <div className="flex flex-1 flex-col">
-        <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <DashboardShell insetClassName="md:h-[calc(100svh-1rem)] md:min-h-0 md:overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col md:h-[calc(100%-var(--header-height))] md:overflow-hidden">
+        <div className="@container/main flex min-h-0 flex-1 flex-col md:overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 py-3 md:gap-4 md:overflow-hidden md:py-4">
             {loading || !overview ? (
               <div className="px-4 lg:px-6">
                 <Card className="border-border/50 bg-card/50">
@@ -57,18 +57,14 @@ export default function Page() {
                 </Card>
               </div>
             ) : (
-              <>
+              <div className="flex min-h-0 flex-1 flex-col gap-3 md:gap-4 md:overflow-hidden">
                 <SectionCards cards={overview.cards} />
                 <AgentMetricCharts metrics={overview.agentMetrics} cards={overview.cards} />
-                <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-3 lg:px-6">
-                  <div className="lg:col-span-2">
-                    <ActiveConnectionChart data={overview.activeConnections} />
-                  </div>
-                  <div>
-                    <ConnectionDurationStats stats={overview.connectionDurationStats} />
-                  </div>
+                <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 px-4 md:overflow-hidden lg:grid-cols-2 lg:px-6 [&>*]:min-h-0">
+                  <ActiveConnectionTable data={overview.activeConnections} />
+                  <ConnectionDurationStats stats={overview.connectionDurationStats} />
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>

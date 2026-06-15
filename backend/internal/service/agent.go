@@ -72,14 +72,33 @@ func (s *Service) handleHostStatus(raw []byte) error {
 	if msg.ReportedAt.IsZero() {
 		return fmt.Errorf("host_status 缺少 reportedAt")
 	}
-	if msg.CPUUsage < 0 || msg.CPUUsage > 100 || msg.MemoryUsage < 0 || msg.MemoryUsage > 100 || msg.DiskUsage < 0 || msg.DiskUsage > 100 {
+	if msg.CPUUsage < 0 || msg.CPUUsage > 100 || msg.MemoryUsage < 0 || msg.MemoryUsage > 100 {
 		return fmt.Errorf("host_status 百分比数值无效")
 	}
+	diskValid := true
+	if msg.DiskUsage < 0 || msg.DiskUsage > 100 {
+		s.reportAgentIssue(nil, "error", "host_status", "host_status 磁盘使用率无效: %.2f", msg.DiskUsage)
+		diskValid = false
+	}
 	if msg.DiskTotal <= 0 || msg.DiskUsed < 0 || msg.DiskFree < 0 {
-		return fmt.Errorf("host_status 磁盘空间无效: total=%d used=%d free=%d", msg.DiskTotal, msg.DiskUsed, msg.DiskFree)
+		s.reportAgentIssue(nil, "error", "host_status", "host_status 磁盘空间无效: total=%d used=%d free=%d", msg.DiskTotal, msg.DiskUsed, msg.DiskFree)
+		diskValid = false
 	}
 	if trim(msg.DiskDrive) == "" {
-		return fmt.Errorf("host_status 缺少 diskDrive")
+		s.reportAgentIssue(nil, "error", "host_status", "host_status 缺少 diskDrive")
+		diskValid = false
+	}
+
+	s.recordAgentHeartbeat(s.now())
+
+	var previousStatus models.AgentStatus
+	hasPreviousStatus := false
+	if !diskValid {
+		err := s.db.First(&previousStatus, "id = ?", models.SingleAgentID).Error
+		if err != nil && !isNotFound(err) {
+			return fmt.Errorf("查询 agent 状态失败: %w", err)
+		}
+		hasPreviousStatus = err == nil
 	}
 
 	status := models.AgentStatus{
@@ -88,12 +107,20 @@ func (s *Service) handleHostStatus(raw []byte) error {
 		CPUUsage:    msg.CPUUsage,
 		MemoryUsage: msg.MemoryUsage,
 		GPUUsage:    msg.GPUUsage,
-		DiskUsage:   msg.DiskUsage,
-		DiskTotal:   msg.DiskTotal,
-		DiskUsed:    msg.DiskUsed,
-		DiskFree:    msg.DiskFree,
-		DiskDrive:   trim(msg.DiskDrive),
 		ReportedAt:  msg.ReportedAt,
+	}
+	if diskValid {
+		status.DiskUsage = msg.DiskUsage
+		status.DiskTotal = msg.DiskTotal
+		status.DiskUsed = msg.DiskUsed
+		status.DiskFree = msg.DiskFree
+		status.DiskDrive = trim(msg.DiskDrive)
+	} else if hasPreviousStatus {
+		status.DiskUsage = previousStatus.DiskUsage
+		status.DiskTotal = previousStatus.DiskTotal
+		status.DiskUsed = previousStatus.DiskUsed
+		status.DiskFree = previousStatus.DiskFree
+		status.DiskDrive = previousStatus.DiskDrive
 	}
 	metric := models.AgentMetric{
 		Hostname:    status.Hostname,

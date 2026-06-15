@@ -19,10 +19,30 @@ import {
 } from "@/components/ui/card"
 import type { Overview } from "@/lib/api"
 
+function formatAgentUptime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return "0 分钟"
+  }
+
+  const minutes = Math.max(1, Math.floor(seconds / 60))
+  if (minutes < 60) {
+    return `${minutes} 分钟`
+  }
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) {
+    return `${hours} 小时`
+  }
+
+  const days = Math.floor(hours / 24)
+  const restHours = hours % 24
+  return restHours > 0 ? `${days} 天 ${restHours} 小时` : `${days} 天`
+}
+
 export function SectionCards({ cards }: { cards: Overview["cards"] }) {
   return (
-    <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-3">
-      <Card className="@container/card border-border/50 bg-card/50">
+    <div className="grid shrink-0 grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-3">
+      <Card className="@container/card border border-border/50 bg-card/50 ring-0">
         <CardHeader>
           <CardDescription className="flex items-center gap-2">
             <IconApps className="size-4 text-primary" />
@@ -48,7 +68,7 @@ export function SectionCards({ cards }: { cards: Overview["cards"] }) {
         </CardFooter>
       </Card>
 
-      <Card className="@container/card border-border/50 bg-card/50">
+      <Card className="@container/card border border-border/50 bg-card/50 ring-0">
         <CardHeader>
           <CardDescription className="flex items-center gap-2">
             <IconUsers className="size-4 text-chart-2" />
@@ -74,14 +94,16 @@ export function SectionCards({ cards }: { cards: Overview["cards"] }) {
         </CardFooter>
       </Card>
 
-      <Card className="@container/card border-border/50 bg-card/50">
+      <Card className="@container/card border border-border/50 bg-card/50 ring-0">
         <CardHeader>
           <CardDescription className="flex items-center gap-2">
             <IconClock className="size-4 text-chart-4" />
             系统运行时间
           </CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {cards.agentOnline ? "在线" : "离线"}
+            {cards.agentOnline
+              ? formatAgentUptime(cards.agentUptimeSeconds)
+              : "离线"}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="border-chart-4/30 text-chart-4">
@@ -104,7 +126,7 @@ export function SectionCards({ cards }: { cards: Overview["cards"] }) {
             )}
           </div>
           <div className="text-muted-foreground">
-            数据来自后端实时状态
+            从首次收到 Agent 心跳开始统计
           </div>
         </CardFooter>
       </Card>

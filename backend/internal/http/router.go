@@ -57,6 +57,8 @@ func NewRouter(svc *service.Service, jwtSecret string, agent *agentws.Manager, c
 
 		admin.GET("/overview", server.overview)
 		admin.GET("/notifications", server.notifications)
+		admin.POST("/notifications/mark-all-read", server.markAllNotificationsRead)
+		admin.GET("/activity-logs", server.activityLogs)
 	}
 
 	client := router.Group("/api/client")
@@ -312,6 +314,24 @@ func (s *Server) notifications(c *gin.Context) {
 		return
 	}
 	ok(c, notifications)
+}
+
+func (s *Server) markAllNotificationsRead(c *gin.Context) {
+	result, err := s.service.MarkAllAgentIssuesRead()
+	if err != nil {
+		fail(c, http.StatusOK, err.Error())
+		return
+	}
+	ok(c, result)
+}
+
+func (s *Server) activityLogs(c *gin.Context) {
+	result, err := s.service.ListActivityLogs(c.Query("filter"))
+	if err != nil {
+		fail(c, http.StatusOK, err.Error())
+		return
+	}
+	ok(c, result)
 }
 
 func (s *Server) getSystemSettings(c *gin.Context) {

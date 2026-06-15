@@ -191,11 +191,12 @@ func (l *ActivityLog) BeforeCreate(tx *gorm.DB) error {
 }
 
 type AgentIssue struct {
-	ID        string    `gorm:"primaryKey;size:64" json:"id"`
-	Level     string    `gorm:"size:32;not null;index" json:"level"`
-	Type      string    `gorm:"size:64;not null;index" json:"type"`
-	Message   string    `gorm:"size:512;not null" json:"message"`
-	CreatedAt time.Time `gorm:"index" json:"createdAt"`
+	ID        string     `gorm:"primaryKey;size:64" json:"id"`
+	Level     string     `gorm:"size:32;not null;index" json:"level"`
+	Type      string     `gorm:"size:64;not null;index" json:"type"`
+	Message   string     `gorm:"size:512;not null" json:"message"`
+	CreatedAt time.Time  `gorm:"index" json:"createdAt"`
+	ReadAt    *time.Time `gorm:"index" json:"readAt,omitempty"`
 }
 
 func (i *AgentIssue) BeforeCreate(tx *gorm.DB) error {

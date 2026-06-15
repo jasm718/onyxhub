@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"unicode"
 	"time"
 
 	"onyxhub/backend/internal/auth"
@@ -13,23 +15,23 @@ import (
 )
 
 type CreateUserInput struct {
-	Username        string `json:"username"`
-	DisplayName     string `json:"displayName"`
-	WindowsUsername string `json:"windowsUsername"`
-	Password        string `json:"password"`
-	Role            string `json:"role"`
-	Status          string `json:"status"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	Password    string `json:"password"`
+	Role        string `json:"role"`
+	Status      string `json:"status"`
 }
 
 type UpdateUserInput struct {
-	ID              string  `json:"id"`
-	Username        *string `json:"username"`
-	DisplayName     *string `json:"displayName"`
-	WindowsUsername *string `json:"windowsUsername"`
-	Password        *string `json:"password"`
-	Role            *string `json:"role"`
-	Status          *string `json:"status"`
+	ID          string  `json:"id"`
+	Username    *string `json:"username"`
+	DisplayName *string `json:"displayName"`
+	Password    *string `json:"password"`
+	Role        *string `json:"role"`
+	Status      *string `json:"status"`
 }
+
+const maxWindowsUsernameBaseLength = 13
 
 func (s *Service) ListUsers() ([]PublicUser, error) {
 	var users []models.User
@@ -42,7 +44,6 @@ func (s *Service) ListUsers() ([]PublicUser, error) {
 func (s *Service) CreateUser(actorUserID string, input CreateUserInput) (PublicUser, error) {
 	username := trim(input.Username)
 	displayName := trim(input.DisplayName)
-	windowsUsername := trim(input.WindowsUsername)
 	password := input.Password
 	role := trim(input.Role)
 	status := trim(input.Status)
@@ -62,9 +63,6 @@ func (s *Service) CreateUser(actorUserID string, input CreateUserInput) (PublicU
 	if !models.IsValidStatus(status) {
 		return PublicUser{}, errors.New("状态无效")
 	}
-	if role == models.RoleUser && windowsUsername == "" {
-		return PublicUser{}, errors.New("Windows 用户名不能为空")
-	}
 
 	exists, err := s.usernameExists(username, "")
 	if err != nil {
@@ -74,12 +72,21 @@ func (s *Service) CreateUser(actorUserID string, input CreateUserInput) (PublicU
 		return PublicUser{}, errors.New("用户名已存在")
 	}
 
-	windowsExists, err := s.windowsUsernameExists(windowsUsername, "")
-	if err != nil {
-		return PublicUser{}, fmt.Errorf("检查 Windows 用户名失败: %w", err)
-	}
-	if windowsExists {
-		return PublicUser{}, errors.New("Windows 用户名已存在")
+	windowsUsername := ""
+	if role == models.RoleUser {
+		var err error
+		windowsUsername, err = s.generateWindowsUsername(username)
+		if err != nil {
+			return PublicUser{}, err
+		}
+
+		windowsExists, err := s.windowsUsernameExists(windowsUsername, "")
+		if err != nil {
+			return PublicUser{}, fmt.Errorf("检查 Windows 用户名失败: %w", err)
+		}
+		if windowsExists {
+			return PublicUser{}, errors.New("Windows 用户名已存在")
+		}
 	}
 
 	passwordHash, err := auth.HashPassword(password)
@@ -174,12 +181,6 @@ func (s *Service) UpdateUser(actorUserID string, input UpdateUserInput) (PublicU
 			return PublicUser{}, errors.New("展示名称不能为空")
 		}
 	}
-	if input.WindowsUsername != nil {
-		nextWindowsUsername = trim(*input.WindowsUsername)
-		if nextWindowsUsername != publicWindowsUsername(user) {
-			return PublicUser{}, errors.New("暂不支持修改 Windows 用户名")
-		}
-	}
 	if input.Role != nil {
 		nextRole = trim(*input.Role)
 		if !models.IsValidRole(nextRole) {
@@ -195,10 +196,6 @@ func (s *Service) UpdateUser(actorUserID string, input UpdateUserInput) (PublicU
 			return PublicUser{}, errors.New("状态无效")
 		}
 	}
-	if nextRole == models.RoleUser && nextWindowsUsername == "" {
-		return PublicUser{}, errors.New("Windows 用户名不能为空")
-	}
-
 	usernameExists, err := s.usernameExists(nextUsername, user.ID)
 	if err != nil {
 		return PublicUser{}, fmt.Errorf("检查用户名失败: %w", err)
@@ -315,4 +312,45 @@ func (s *Service) DeleteUser(actorUserID string, id string) error {
 		}
 		return s.logActivity(tx, models.ActivityUserDeleted, models.ActorTypeAdmin, actorUserID, models.TargetTypeUser, user.ID, "删除用户 "+user.Username)
 	})
+}
+
+func (s *Service) generateWindowsUsername(username string) (string, error) {
+	username = trim(username)
+	if username == "" {
+		return "", errors.New("用户名不能为空")
+	}
+	if len([]rune(username)) > maxWindowsUsernameBaseLength {
+		return "", fmt.Errorf("用户名长度不能超过 %d 位", maxWindowsUsernameBaseLength)
+	}
+
+	base := normalizeWindowsUsernameBase(username)
+	if base == "" {
+		return "", errors.New("用户名不能生成有效的 Windows 用户名")
+	}
+
+	suffix := fmt.Sprintf("%04d", s.now().Unix()%10000)
+	windowsUsername := base + "_" + suffix
+	if len([]rune(windowsUsername)) > 18 {
+		return "", errors.New("Windows 用户名长度超限")
+	}
+	return windowsUsername, nil
+}
+
+func normalizeWindowsUsernameBase(username string) string {
+	var b []rune
+	for _, r := range strings.ToLower(strings.TrimSpace(username)) {
+		switch {
+		case unicode.IsLetter(r), unicode.IsDigit(r):
+			b = append(b, r)
+		case r == '_':
+			b = append(b, r)
+		default:
+			b = append(b, '_')
+		}
+	}
+	base := strings.Trim(string(b), "_")
+	if len([]rune(base)) > maxWindowsUsernameBaseLength {
+		base = string([]rune(base)[:maxWindowsUsernameBaseLength])
+	}
+	return base
 }

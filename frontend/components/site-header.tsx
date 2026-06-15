@@ -10,6 +10,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 
 const pageTitles: Record<string, string> = {
   '/dashboard': '仪表盘',
+  '/dashboard/activity-logs': '活动日志',
   '/dashboard/applications': '应用管理',
   '/dashboard/users': '用户管理',
   '/dashboard/settings/general': '通用设置',

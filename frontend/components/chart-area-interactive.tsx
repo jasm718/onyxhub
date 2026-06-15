@@ -1,124 +1,154 @@
 "use client"
 
 import * as React from "react"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { ArrowDown, ArrowUp } from "lucide-react"
 
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import type { Overview } from "@/lib/api"
 import { formatDuration } from "@/lib/format"
 
-const chartConfig = {
-  connectedSeconds: {
-    label: "已连接时长",
-    color: "var(--chart-1)",
-  },
-} satisfies ChartConfig
+type DurationSort = "desc" | "asc"
 
-function axisDuration(value: number) {
-  if (value < 3600) {
-    return `${Math.round(value / 60)}分`
-  }
-  if (value < 86400) {
-    return `${Math.round(value / 3600)}时`
-  }
-  return `${Math.round(value / 86400)}天`
+function formatTime(date: Date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(
+    date.getMinutes()
+  ).padStart(2, "0")}`
 }
 
-function shortUsername(value: string) {
-  return value.length > 10 ? `${value.slice(0, 9)}...` : value
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
-export function ActiveConnectionChart({
+function startOfWeek(date: Date) {
+  const day = date.getDay()
+  const offset = day === 0 ? 6 : day - 1
+  const start = startOfDay(date)
+  start.setDate(start.getDate() - offset)
+  return start
+}
+
+function formatFullDateTime(date: Date) {
+  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}/${String(date.getDate()).padStart(2, "0")} ${formatTime(date)}`
+}
+
+function formatConnectionStartTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return "-"
+  }
+
+  const today = startOfDay(new Date())
+  const current = startOfDay(date)
+  const dayDiff = Math.floor((today.getTime() - current.getTime()) / 86400000)
+  const time = formatTime(date)
+
+  if (dayDiff === 0) {
+    return `今天 ${time}`
+  }
+  if (dayDiff === 1) {
+    return `昨天 ${time}`
+  }
+  if (dayDiff === 2) {
+    return `前天 ${time}`
+  }
+  if (date >= startOfWeek(new Date())) {
+    const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
+    return `${weekdays[date.getDay()]} ${time}`
+  }
+
+  return formatFullDateTime(date)
+}
+
+export function ActiveConnectionTable({
   data,
 }: {
   data: Overview["activeConnections"]
 }) {
-  const chartData = React.useMemo(
+  const [durationSort, setDurationSort] = React.useState<DurationSort>("desc")
+  const rows = React.useMemo(
     () =>
-      data.map((item) => ({
-        username: item.username,
-        connectedSeconds: item.connectedSeconds,
-      })),
-    [data]
+      data
+        .map((item) => ({
+          username: item.username,
+          connectedSeconds: item.connectedSeconds,
+          connectedAt: item.connectedAt,
+        }))
+        .sort((a, b) => {
+          const value =
+            durationSort === "asc"
+              ? a.connectedSeconds - b.connectedSeconds
+              : b.connectedSeconds - a.connectedSeconds
+
+          return value === 0 ? a.username.localeCompare(b.username, "zh-CN") : value
+        }),
+    [data, durationSort]
   )
+  const DurationSortIcon = durationSort === "asc" ? ArrowUp : ArrowDown
 
   return (
-    <Card className="@container/card border-border/50 bg-card/50">
+    <Card className="@container/card h-full min-h-0 gap-[6px] border border-border/50 bg-card/50 ring-0">
       <CardHeader>
         <CardTitle>当前活跃连接</CardTitle>
-        <CardDescription>按用户展示当前已连接时长</CardDescription>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        {chartData.length ? (
-          <ChartContainer
-            config={chartConfig}
-            className="aspect-auto h-[300px] w-full"
-          >
-            <BarChart
-              data={chartData}
-              margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
-            >
-              <CartesianGrid
-                vertical={false}
-                strokeDasharray="3 3"
-                stroke="var(--border)"
-              />
-              <XAxis
-                dataKey="username"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                interval={0}
-                tickFormatter={shortUsername}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                width={44}
-                tickFormatter={(value) => axisDuration(Number(value))}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(value) => String(value)}
-                    formatter={(value) => (
-                      <div className="flex min-w-36 items-center justify-between gap-4">
-                        <span className="text-muted-foreground">
-                          已连接时长
-                        </span>
-                        <span className="font-mono font-medium text-foreground tabular-nums">
-                          {formatDuration(Number(value))}
-                        </span>
-                      </div>
-                    )}
-                    indicator="dot"
-                  />
-                }
-              />
-              <Bar
-                dataKey="connectedSeconds"
-                fill="var(--chart-1)"
-                radius={[4, 4, 0, 0]}
-                isAnimationActive={false}
-              />
-            </BarChart>
-          </ChartContainer>
+      <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-0 sm:px-6">
+        {rows.length ? (
+          <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border/60">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-card">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-8">用户名</TableHead>
+                  <TableHead className="h-8 text-right">
+                    <button
+                      type="button"
+                      className="ml-auto inline-flex items-center gap-1 font-medium text-foreground"
+                      onClick={() =>
+                        setDurationSort((value) =>
+                          value === "desc" ? "asc" : "desc"
+                        )
+                      }
+                    >
+                      连接时长
+                      <DurationSortIcon className="size-3.5" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="h-8 text-right">起始时间</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((item, index) => (
+                  <TableRow key={`${item.username}-${item.connectedAt}-${index}`}>
+                    <TableCell className="py-2 font-medium">
+                      {item.username}
+                    </TableCell>
+                    <TableCell className="py-2 text-right font-mono text-muted-foreground tabular-nums">
+                      {formatDuration(item.connectedSeconds)}
+                    </TableCell>
+                    <TableCell className="py-2 text-right font-mono text-muted-foreground tabular-nums">
+                      {formatConnectionStartTime(item.connectedAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         ) : (
-          <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+          <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground md:h-full">
             暂无活跃连接
           </div>
         )}

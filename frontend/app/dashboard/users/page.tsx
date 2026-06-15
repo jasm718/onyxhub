@@ -56,7 +56,6 @@ type UserFormState = {
   id: string
   username: string
   displayName: string
-  windowsUsername: string
   password: string
   role: "admin" | "user"
   status: "active" | "disabled"
@@ -66,7 +65,6 @@ const emptyForm: UserFormState = {
   id: "",
   username: "",
   displayName: "",
-  windowsUsername: "",
   password: "",
   role: "user",
   status: "active",
@@ -77,7 +75,6 @@ function toForm(user: User): UserFormState {
     id: user.id,
     username: user.username,
     displayName: user.displayName,
-    windowsUsername: user.windowsUsername,
     password: "",
     role: user.role,
     status: user.status,
@@ -374,14 +371,6 @@ export default function UsersPage() {
                   onChange={(event) => setForm({ ...form, displayName: event.target.value })}
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="windowsUsername">Windows 用户名</Label>
-              <Input
-                id="windowsUsername"
-                value={form.windowsUsername}
-                onChange={(event) => setForm({ ...form, windowsUsername: event.target.value })}
-              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">
