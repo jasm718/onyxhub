@@ -1,7 +1,7 @@
 param(
   [string]$ServerAddress,
   [switch]$Prompt,
-  [int]$HeartbeatIntervalSeconds = 30
+  [int]$HeartbeatIntervalSeconds = 3
 )
 
 $ErrorActionPreference = "Stop"

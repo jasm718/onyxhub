@@ -73,7 +73,7 @@ func runCommand(args []string, logger *applog.Logger) error {
 		if len(args) < 2 || len(args) > 3 {
 			return fmt.Errorf("用法: onyxhub-agent.exe configure <server-address> [heartbeat-seconds]")
 		}
-		heartbeatSeconds := 30
+		heartbeatSeconds := 3
 		if len(args) == 3 {
 			value, err := strconv.Atoi(args[2])
 			if err != nil {

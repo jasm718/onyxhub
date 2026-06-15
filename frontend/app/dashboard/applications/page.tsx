@@ -13,6 +13,16 @@ import { toast } from "sonner"
 
 import { DashboardShell } from "@/components/dashboard-shell"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -100,6 +110,7 @@ export default function ApplicationsPage() {
   const [permissionOpen, setPermissionOpen] = React.useState(false)
   const [editingApplication, setEditingApplication] = React.useState<Application | null>(null)
   const [permissionApplication, setPermissionApplication] = React.useState<Application | null>(null)
+  const [deletingApplication, setDeletingApplication] = React.useState<Application | null>(null)
   const [form, setForm] = React.useState<ApplicationFormState>(emptyForm)
 
   const filteredApps = applications.filter((application) => {
@@ -181,13 +192,18 @@ export default function ApplicationsPage() {
     }
   }
 
-  async function handleDelete(application: Application) {
-    if (!window.confirm(`确认删除应用 ${application.name}？`)) {
+  function openDeleteConfirm(application: Application) {
+    setDeletingApplication(application)
+  }
+
+  async function handleDelete() {
+    if (!deletingApplication) {
       return
     }
     try {
-      await api.deleteApplication(application.id)
+      await api.deleteApplication(deletingApplication.id)
       toast.success("应用已删除")
+      setDeletingApplication(null)
       await loadData()
     } catch (error) {
       toast.error((error as Error).message)
@@ -362,8 +378,8 @@ export default function ApplicationsPage() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 px-2 text-destructive hover:text-destructive"
-                                    onClick={() => handleDelete(application)}
+                                    className="h-7 px-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                    onClick={() => openDeleteConfirm(application)}
                                   >
                                     删除
                                   </Button>
@@ -532,6 +548,28 @@ export default function ApplicationsPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog
+        open={Boolean(deletingApplication)}
+        onOpenChange={(open: boolean) => !open && setDeletingApplication(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除应用</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingApplication
+                ? `确认删除应用 ${deletingApplication.name}？此操作不可恢复。`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">取消</AlertDialogCancel>
+            <AlertDialogAction type="button" onClick={handleDelete}>
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardShell>
   )
 }

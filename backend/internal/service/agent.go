@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"onyxhub/backend/internal/models"
@@ -236,6 +237,9 @@ func (s *Service) validSessionSnapshotItem(tx *gorm.DB, hostname string, item se
 	windowsUsername := trim(item.WindowsUsername)
 	if windowsUsername == "" {
 		s.reportAgentIssue(tx, "warn", "session_snapshot", "session_snapshot 缺少 windowsUsername")
+		return "", models.User{}, false
+	}
+	if strings.EqualFold(windowsUsername, "administrator") {
 		return "", models.User{}, false
 	}
 	if item.ConnectedAt.IsZero() {

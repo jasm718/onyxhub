@@ -28,3 +28,20 @@ func TestGenerateWindowsUsernameRejectsLongUsername(t *testing.T) {
 	}
 }
 
+func TestValidSessionSnapshotItemIgnoresAdministrator(t *testing.T) {
+	svc := &Service{}
+	item := sessionSnapshotItem{
+		WindowsUsername:  "Administrator",
+		WindowsSessionID: intPtr(1),
+		ConnectedAt:      time.Now(),
+	}
+
+	_, _, ok := svc.validSessionSnapshotItem(nil, "host", item)
+	if ok {
+		t.Fatal("expected administrator session to be ignored")
+	}
+}
+
+func intPtr(v int) *int {
+	return &v
+}

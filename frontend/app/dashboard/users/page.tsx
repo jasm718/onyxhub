@@ -11,6 +11,16 @@ import { toast } from "sonner"
 
 import { DashboardShell } from "@/components/dashboard-shell"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -21,13 +31,6 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Sheet,
   SheetContent,
@@ -92,6 +95,7 @@ export default function UsersPage() {
   const [permissionOpen, setPermissionOpen] = React.useState(false)
   const [editingUser, setEditingUser] = React.useState<User | null>(null)
   const [permissionUser, setPermissionUser] = React.useState<User | null>(null)
+  const [deletingUser, setDeletingUser] = React.useState<User | null>(null)
   const [form, setForm] = React.useState<UserFormState>(emptyForm)
 
   const filteredUsers = users.filter((user) => {
@@ -174,13 +178,34 @@ export default function UsersPage() {
     }
   }
 
-  async function handleDelete(user: User) {
-    if (!window.confirm(`确认删除用户 ${user.displayName || user.username}？`)) {
+  function openDeleteConfirm(user: User) {
+    setDeletingUser(user)
+  }
+
+  async function handleDelete() {
+    if (!deletingUser) {
       return
     }
     try {
-      await api.deleteUser(user.id)
+      await api.deleteUser(deletingUser.id)
       toast.success("用户已删除")
+      setDeletingUser(null)
+      await loadData()
+    } catch (error) {
+      toast.error((error as Error).message)
+    }
+  }
+
+  async function toggleStatus(user: User) {
+    try {
+      await api.updateUser({
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        role: user.role,
+        status: user.status === "active" ? "disabled" : "active",
+      })
+      toast.success(user.status === "active" ? "用户已禁用" : "用户已启用")
       await loadData()
     } catch (error) {
       toast.error((error as Error).message)
@@ -309,14 +334,23 @@ export default function UsersPage() {
                                     className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                                     onClick={() => openPermissions(user)}
                                   >
-                                    应用权限
+                                    权限
                                   </Button>
                                   <span className="h-4 w-px bg-border" aria-hidden="true" />
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 px-2 text-destructive hover:text-destructive"
-                                    onClick={() => handleDelete(user)}
+                                    className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                    onClick={() => toggleStatus(user)}
+                                  >
+                                    {user.status === "active" ? "禁用" : "启用"}
+                                  </Button>
+                                  <span className="h-4 w-px bg-border" aria-hidden="true" />
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                    onClick={() => openDeleteConfirm(user)}
                                   >
                                     删除
                                   </Button>
@@ -350,7 +384,7 @@ export default function UsersPage() {
           <SheetHeader>
             <SheetTitle>{editingUser ? "编辑用户" : "添加用户"}</SheetTitle>
             <SheetDescription>
-              {editingUser ? "修改用户基础信息和状态" : "创建一个新的管理员或普通用户"}
+              {editingUser ? "修改用户基础信息" : "创建一个新的用户"}
             </SheetDescription>
           </SheetHeader>
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
@@ -384,38 +418,8 @@ export default function UsersPage() {
                 onChange={(event) => setForm({ ...form, password: event.target.value })}
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>角色</Label>
-                <Select
-                  value={form.role}
-                  onValueChange={(value) => setForm({ ...form, role: value as "admin" | "user" })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">管理员</SelectItem>
-                    <SelectItem value="user">用户</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>状态</Label>
-                <Select
-                  value={form.status}
-                  onValueChange={(value) => setForm({ ...form, status: value as "active" | "disabled" })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">启用</SelectItem>
-                    <SelectItem value="disabled">禁用</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            <input type="hidden" value={form.role} readOnly />
+            <input type="hidden" value={form.status} readOnly />
             <SheetFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                 取消
@@ -491,6 +495,26 @@ export default function UsersPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog
+        open={Boolean(deletingUser)}
+        onOpenChange={(open: boolean) => !open && setDeletingUser(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除用户</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingUser ? `确认删除用户 ${deletingUser.displayName || deletingUser.username}？此操作不可恢复。` : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">取消</AlertDialogCancel>
+            <AlertDialogAction type="button" onClick={handleDelete}>
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardShell>
   )
 }

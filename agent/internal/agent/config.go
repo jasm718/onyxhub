@@ -64,7 +64,7 @@ func (c *Config) validate() error {
 		return errors.New("agent 配置缺少 backendWebSocketUrl")
 	}
 	if c.HeartbeatIntervalSeconds <= 0 {
-		c.HeartbeatIntervalSeconds = 30
+		c.HeartbeatIntervalSeconds = 3
 	}
 	c.HeartbeatInterval = time.Duration(c.HeartbeatIntervalSeconds) * time.Second
 	return nil

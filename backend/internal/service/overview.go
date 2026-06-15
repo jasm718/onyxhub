@@ -83,10 +83,10 @@ type MarkAgentIssuesReadResult struct {
 func (s *Service) GetOverview() (Overview, error) {
 	var overview Overview
 
-	if err := s.db.Model(&models.User{}).Count(&overview.Cards.TotalUsers).Error; err != nil {
+	if err := s.db.Model(&models.User{}).Where("role = ?", models.RoleUser).Count(&overview.Cards.TotalUsers).Error; err != nil {
 		return Overview{}, fmt.Errorf("统计用户失败: %w", err)
 	}
-	if err := s.db.Model(&models.User{}).Where("status = ?", models.StatusActive).Count(&overview.Cards.ActiveUsers).Error; err != nil {
+	if err := s.db.Model(&models.User{}).Where("role = ? AND status = ?", models.RoleUser, models.StatusActive).Count(&overview.Cards.ActiveUsers).Error; err != nil {
 		return Overview{}, fmt.Errorf("统计启用用户失败: %w", err)
 	}
 	if err := s.db.Model(&models.Application{}).Count(&overview.Cards.TotalApplications).Error; err != nil {
