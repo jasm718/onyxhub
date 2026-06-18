@@ -58,6 +58,7 @@ func NewRouter(svc *service.Service, jwtSecret string, agent *agentws.Manager, c
 		admin.GET("/overview", server.overview)
 		admin.GET("/notifications", server.notifications)
 		admin.POST("/notifications/mark-all-read", server.markAllNotificationsRead)
+		admin.POST("/notifications/mark-read", server.markNotificationRead)
 		admin.GET("/activity-logs", server.activityLogs)
 	}
 
@@ -317,7 +318,20 @@ func (s *Server) notifications(c *gin.Context) {
 }
 
 func (s *Server) markAllNotificationsRead(c *gin.Context) {
-	result, err := s.service.MarkAllAgentIssuesRead()
+	result, err := s.service.MarkAllLogAlertsRead()
+	if err != nil {
+		fail(c, http.StatusOK, err.Error())
+		return
+	}
+	ok(c, result)
+}
+
+func (s *Server) markNotificationRead(c *gin.Context) {
+	var req idRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	result, err := s.service.MarkLogRead(req.ID)
 	if err != nil {
 		fail(c, http.StatusOK, err.Error())
 		return

@@ -57,21 +57,6 @@ func requireID(id string) (string, error) {
 	return id, nil
 }
 
-func (s *Service) logActivity(tx *gorm.DB, activityType string, actorType string, actorUserID string, targetType string, targetID string, message string) error {
-	logItem := models.ActivityLog{
-		Type:        activityType,
-		ActorType:   actorType,
-		ActorUserID: trim(actorUserID),
-		TargetType:  targetType,
-		TargetID:    targetID,
-		Message:     message,
-	}
-	if err := tx.Create(&logItem).Error; err != nil {
-		return fmt.Errorf("记录活动日志失败: %w", err)
-	}
-	return nil
-}
-
 func (s *Service) windowsUsernameExists(username string, excludeUserID string) (bool, error) {
 	username = trim(username)
 	if username == "" {
@@ -116,34 +101,109 @@ func isNotFound(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
-func (s *Service) reportAgentIssue(tx *gorm.DB, level string, issueType string, format string, args ...any) {
-	message := fmt.Sprintf(format, args...)
-	level = trim(level)
-	if level == "" {
-		level = "error"
-	}
-	issueType = trim(issueType)
-	if issueType == "" {
-		issueType = "agent_issue"
-	}
+type LogInput struct {
+	Category    string
+	Level       string
+	Source      string
+	Type        string
+	ActorType   string
+	ActorUserID string
+	TargetType  string
+	TargetID    string
+	Message     string
+	Detail      string
+}
 
-	log.Printf("agent issue[%s] %s: %s", level, issueType, message)
+func (s *Service) writeLog(tx *gorm.DB, input LogInput) error {
 	if s == nil || s.db == nil {
-		return
+		return errors.New("服务未初始化")
 	}
 
-	issue := models.AgentIssue{
-		Level:   level,
-		Type:    issueType,
-		Message: message,
+	category := trim(input.Category)
+	if category == "" {
+		return errors.New("日志分类不能为空")
+	}
+	level := trim(input.Level)
+	if level == "" {
+		return errors.New("日志级别不能为空")
+	}
+	source := trim(input.Source)
+	if source == "" {
+		return errors.New("日志来源不能为空")
+	}
+	logType := trim(input.Type)
+	if logType == "" {
+		return errors.New("日志类型不能为空")
+	}
+	actorType := trim(input.ActorType)
+	if actorType == "" {
+		actorType = models.ActorTypeSystem
+	}
+	targetType := trim(input.TargetType)
+	if targetType == "" {
+		targetType = models.TargetTypeSystem
+	}
+	message := trim(input.Message)
+	if message == "" {
+		return errors.New("日志内容不能为空")
+	}
+
+	logItem := models.ActivityLog{
+		Category:    category,
+		Level:       level,
+		Source:      source,
+		Type:        logType,
+		ActorType:   actorType,
+		ActorUserID: trim(input.ActorUserID),
+		TargetType:  targetType,
+		TargetID:    trim(input.TargetID),
+		Message:     message,
+		Detail:      trim(input.Detail),
 	}
 	db := s.db
 	if tx != nil {
 		db = tx
 	}
-	if err := db.Create(&issue).Error; err != nil {
-		log.Printf("记录 agent 异常失败: %v", err)
+	if err := db.Create(&logItem).Error; err != nil {
+		return fmt.Errorf("记录日志失败: %w", err)
 	}
+	return nil
+}
+
+func (s *Service) logActivity(tx *gorm.DB, activityType string, actorType string, actorUserID string, targetType string, targetID string, message string) error {
+	return s.writeLog(tx, LogInput{
+		Category:    models.LogCategoryActivity,
+		Level:       models.LogLevelInfo,
+		Source:      models.LogSourceBackend,
+		Type:        activityType,
+		ActorType:   actorType,
+		ActorUserID: actorUserID,
+		TargetType:  targetType,
+		TargetID:    targetID,
+		Message:     message,
+	})
+}
+
+func (s *Service) reportLog(tx *gorm.DB, category string, level string, source string, logType string, message string, detail string, targetType string, targetID string) error {
+	if source == "" {
+		source = models.LogSourceBackend
+	}
+	log.Printf("log[%s][%s] %s: %s", category, level, logType, message)
+	return s.writeLog(tx, LogInput{
+		Category:   category,
+		Level:      level,
+		Source:     source,
+		Type:       logType,
+		ActorType:  models.ActorTypeSystem,
+		TargetType: targetType,
+		TargetID:   targetID,
+		Message:    message,
+		Detail:     detail,
+	})
+}
+
+func (s *Service) reportSystemAlert(tx *gorm.DB, level string, logType string, message string, detail string) error {
+	return s.reportLog(tx, models.LogCategoryAlert, level, models.LogSourceBackend, logType, message, detail, models.TargetTypeSystem, models.SingleAgentID)
 }
 
 func (s *Service) withTx(fn func(tx *gorm.DB) error) error {

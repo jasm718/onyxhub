@@ -30,6 +30,18 @@ const (
 	TargetTypeSession       = "session"
 	TargetTypeSystem        = "system"
 
+	LogCategoryActivity = "activity"
+	LogCategoryAlert    = "alert"
+
+	LogLevelInfo  = "info"
+	LogLevelWarn  = "warn"
+	LogLevelError = "error"
+
+	LogSourceAdmin   = "admin"
+	LogSourceSystem  = "system"
+	LogSourceAgent   = "agent"
+	LogSourceBackend = "backend"
+
 	ActivityUserCreated           = "user_created"
 	ActivityUserUpdated           = "user_updated"
 	ActivityUserDeleted           = "user_deleted"
@@ -43,10 +55,11 @@ const (
 	ActivitySessionOpened         = "session_opened"
 	ActivitySessionClosed         = "session_closed"
 	ActivitySystemSettingsUpdated = "system_settings_updated"
-	ActivityAgentIssue            = "agent_issue"
 
 	SingleAgentID          = "single_agent"
 	SingleSystemSettingsID = "system_settings"
+
+	DefaultApplicationIcon = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABsElEQVR4AXyRsUvDUBjE30udXLSpFqQOin0UHbqLCG4Oin+GtU0dXJ0KDupSB2mCODg4C0JRcHIT1LGLbSMqCqLY106KYvP5LpCS1KaBI9e733dDqrGQZ7RkJ3XLPoPgQzD2f6BwOaBb9WKb0wW12yUIHhlTXfdQYCBWqub1+Pgnc9izzImpZj51DsEj01UHxj/iDkSt2rJu1iukaWnneyAuDbHnh+CRoQMDFjfI3QFOvMyIZ2RWrLY2JlsoegkdGLDujYLcAfVm0khe4T28X1/Au5e8zmPBdAbwY+TgcUyLsG3dtE9iVjWBDIJHpkX4FhhkngIDH5mJV/XBZonolkh7iZVqu5DyN5zTqcwl58F4x3gHBhBATUPs8LYzTZynidGXzIlEIyuO0XWr5wCgxnrqjpFzDd9PoQP9jvxdZyBq2XP+op/3s+4AaWyFEx3qln00ZD5Fw47RgQGLG3DuQHNNlNWHmmFElQj7eYuZ9U2U0kgVIHhk6MCAxQ1ydwAGUkVRvicHHWIJ9b8/RM37JQgeGTqZE0WwngIDbljgv01DGJrDFzk5eQgeGVMd63r+AAAA//8kagYzAAAABklEQVQDAFIO2elU1KXHAAAAAElFTkSuQmCC"
 )
 
 type User struct {
@@ -73,6 +86,7 @@ type Application struct {
 	ID                  string    `gorm:"primaryKey;size:64" json:"id"`
 	Name                string    `gorm:"size:128;not null" json:"name"`
 	Path                string    `gorm:"size:512;not null;uniqueIndex" json:"path"`
+	Icon                string    `gorm:"type:text;not null;default:iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABsElEQVR4AXyRsUvDUBjE30udXLSpFqQOin0UHbqLCG4Oin+GtU0dXJ0KDupSB2mCODg4C0JRcHIT1LGLbSMqCqLY106KYvP5LpCS1KaBI9e733dDqrGQZ7RkJ3XLPoPgQzD2f6BwOaBb9WKb0wW12yUIHhlTXfdQYCBWqub1+Pgnc9izzImpZj51DsEj01UHxj/iDkSt2rJu1iukaWnneyAuDbHnh+CRoQMDFjfI3QFOvMyIZ2RWrLY2JlsoegkdGLDujYLcAfVm0khe4T28X1/Au5e8zmPBdAbwY+TgcUyLsG3dtE9iVjWBDIJHpkX4FhhkngIDH5mJV/XBZonolkh7iZVqu5DyN5zTqcwl58F4x3gHBhBATUPs8LYzTZynidGXzIlEIyuO0XWr5wCgxnrqjpFzDd9PoQP9jvxdZyBq2XP+op/3s+4AaWyFEx3qln00ZD5Fw47RgQGLG3DuQHNNlNWHmmFElQj7eYuZ9U2U0kgVIHhk6MCAxQ1ydwAGUkVRvicHHWIJ9b8/RM37JQgeGTqZE0WwngIDbljgv01DGJrDFzk5eQgeGVMd63r+AAAA//8kagYzAAAABklEQVQDAFIO2elU1KXHAAAAAElFTkSuQmCC" json:"icon"`
 	Arguments           string    `gorm:"size:512" json:"arguments"`
 	WorkingDir          string    `gorm:"size:512" json:"workingDir"`
 	Status              string    `gorm:"size:32;not null;index" json:"status"`
@@ -173,35 +187,24 @@ func (s *Session) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ActivityLog struct {
-	ID          string    `gorm:"primaryKey;size:64" json:"id"`
-	Type        string    `gorm:"size:64;not null;index" json:"type"`
-	ActorType   string    `gorm:"size:32;not null;index" json:"actorType"`
-	ActorUserID string    `gorm:"size:64;index" json:"actorUserId"`
-	TargetType  string    `gorm:"size:64;not null;index" json:"targetType"`
-	TargetID    string    `gorm:"size:64;not null;index" json:"targetId"`
-	Message     string    `gorm:"size:512;not null" json:"message"`
-	CreatedAt   time.Time `gorm:"index" json:"createdAt"`
+	ID          string     `gorm:"primaryKey;size:64" json:"id"`
+	Category    string     `gorm:"size:32;not null;default:activity;index" json:"category"`
+	Level       string     `gorm:"size:32;not null;default:info;index" json:"level"`
+	Source      string     `gorm:"size:32;not null;default:backend;index" json:"source"`
+	Type        string     `gorm:"size:64;not null;index" json:"type"`
+	ActorType   string     `gorm:"size:32;not null;index" json:"actorType"`
+	ActorUserID string     `gorm:"size:64;index" json:"actorUserId"`
+	TargetType  string     `gorm:"size:64;not null;index" json:"targetType"`
+	TargetID    string     `gorm:"size:64;not null;index" json:"targetId"`
+	Message     string     `gorm:"size:512;not null" json:"message"`
+	Detail      string     `gorm:"size:2048;not null;default:''" json:"detail"`
+	CreatedAt   time.Time  `gorm:"index" json:"createdAt"`
+	ReadAt      *time.Time `gorm:"index" json:"readAt,omitempty"`
 }
 
 func (l *ActivityLog) BeforeCreate(tx *gorm.DB) error {
 	if l.ID == "" {
 		l.ID = NewID("log")
-	}
-	return nil
-}
-
-type AgentIssue struct {
-	ID        string     `gorm:"primaryKey;size:64" json:"id"`
-	Level     string     `gorm:"size:32;not null;index" json:"level"`
-	Type      string     `gorm:"size:64;not null;index" json:"type"`
-	Message   string     `gorm:"size:512;not null" json:"message"`
-	CreatedAt time.Time  `gorm:"index" json:"createdAt"`
-	ReadAt    *time.Time `gorm:"index" json:"readAt,omitempty"`
-}
-
-func (i *AgentIssue) BeforeCreate(tx *gorm.DB) error {
-	if i.ID == "" {
-		i.ID = NewID("iss")
 	}
 	return nil
 }

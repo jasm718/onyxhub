@@ -37,7 +37,10 @@ func TestValidSessionSnapshotItemIgnoresAdministrator(t *testing.T) {
 		ConnectedAt:      time.Now(),
 	}
 
-	_, _, ok := svc.validSessionSnapshotItem(nil, "host", item)
+	_, _, ok, err := svc.validSessionSnapshotItem(nil, "host", item)
+	if err != nil {
+		t.Fatalf("validSessionSnapshotItem returned error: %v", err)
+	}
 	if ok {
 		t.Fatal("expected administrator session to be ignored")
 	}

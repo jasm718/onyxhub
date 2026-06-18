@@ -40,6 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,13 +51,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -64,7 +58,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { Switch } from "@/components/ui/switch"
 import {
   Table,
   TableBody,
@@ -124,6 +117,37 @@ function toForm(application: Application): ApplicationFormState {
 }
 
 const applicationsPageSize = 10
+const maxApplicationNameLength = 20
+const applicationNameRuleMessage = `应用名称最长 ${maxApplicationNameLength} 位`
+const applicationPathRuleMessage = "应用路径只允许 .exe 或 .lnk 文件,格式如：C:\\windows\\system32\\notepad.exe 。"
+const applicationPathPattern = /^[A-Za-z]:\\(?:[^<>:"|?*\\/\r\n]+\\)*[^<>:"|?*\\/\r\n]+\.(?:exe|lnk)$/i
+
+function normalizeApplicationForm(form: ApplicationFormState): ApplicationFormState {
+  return {
+    ...form,
+    name: form.name.trim(),
+    path: form.path.trim(),
+  }
+}
+
+function validateApplicationForm(form: ApplicationFormState) {
+  const nextForm = normalizeApplicationForm(form)
+
+  if (!nextForm.name) {
+    return "应用名称不能为空"
+  }
+  if (nextForm.name.length > maxApplicationNameLength) {
+    return applicationNameRuleMessage
+  }
+  if (!nextForm.path) {
+    return "应用路径不能为空"
+  }
+  if (!applicationPathPattern.test(nextForm.path)) {
+    return applicationPathRuleMessage
+  }
+
+  return null
+}
 
 function ApplicationsTableToolbar({
   table,
@@ -305,6 +329,8 @@ export default function ApplicationsPage() {
   const [editingApplication, setEditingApplication] = React.useState<Application | null>(null)
   const [permissionApplication, setPermissionApplication] = React.useState<Application | null>(null)
   const [deletingApplication, setDeletingApplication] = React.useState<Application | null>(null)
+  const [permissionSubmitting, setPermissionSubmitting] = React.useState(false)
+  const [selectedUserIds, setSelectedUserIds] = React.useState<string[]>([])
   const [form, setForm] = React.useState<ApplicationFormState>(emptyForm)
 
   const authorizationByApplication = React.useMemo(() => {
@@ -316,6 +342,34 @@ export default function ApplicationsPage() {
     }
     return map
   }, [authorizations])
+
+  const selectedUserIdSet = React.useMemo(
+    () => new Set(selectedUserIds),
+    [selectedUserIds]
+  )
+  const grantedUserIdSet = React.useMemo(
+    () =>
+      new Set(
+        permissionApplication
+          ? (authorizationByApplication.get(permissionApplication.id) || []).map(
+              (item) => item.userId
+            )
+          : []
+      ),
+    [authorizationByApplication, permissionApplication]
+  )
+  const selectedUsers = React.useMemo(
+    () => users.filter((user) => selectedUserIdSet.has(user.id)),
+    [selectedUserIdSet, users]
+  )
+  const grantTargets = React.useMemo(
+    () => selectedUsers.filter((user) => !grantedUserIdSet.has(user.id)),
+    [grantedUserIdSet, selectedUsers]
+  )
+  const revokeTargets = React.useMemo(
+    () => selectedUsers.filter((user) => grantedUserIdSet.has(user.id)),
+    [grantedUserIdSet, selectedUsers]
+  )
 
   async function loadData() {
     setLoading(true)
@@ -353,18 +407,46 @@ export default function ApplicationsPage() {
 
   function openPermissions(application: Application) {
     setPermissionApplication(application)
+    setSelectedUserIds([])
     setPermissionOpen(true)
+  }
+
+  function toggleUserSelection(userId: string, checked: boolean) {
+    setSelectedUserIds((current) => {
+      if (checked) {
+        return current.includes(userId) ? current : [...current, userId]
+      }
+      return current.filter((id) => id !== userId)
+    })
+  }
+
+  function toggleAllUsers(checked: boolean) {
+    setSelectedUserIds(checked ? users.map((user) => user.id) : [])
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const nextForm = normalizeApplicationForm(form)
+    const validationError = validateApplicationForm(nextForm)
+    if (validationError) {
+      toast.error(validationError)
+      return
+    }
+
     setSubmitting(true)
     try {
+      try {
+        await api.fetchApplicationIcon(nextForm.path)
+      } catch (error) {
+        toast.error("应用路径检查失败")
+        return
+      }
+
       if (editingApplication) {
-        await api.updateApplication(form)
+        await api.updateApplication(nextForm)
         toast.success("应用已更新")
       } else {
-        await api.createApplication(form)
+        await api.createApplication(nextForm)
         toast.success("应用已创建")
       }
       setFormOpen(false)
@@ -409,23 +491,33 @@ export default function ApplicationsPage() {
     }
   }
 
-  async function toggleAuthorization(user: User, granted: boolean) {
+  async function applyUserPermissions(action: "grant" | "revoke") {
     if (!permissionApplication) {
       return
     }
 
+    const targets = action === "grant" ? grantTargets : revokeTargets
+    if (!targets.length) {
+      return
+    }
+
+    setPermissionSubmitting(true)
     try {
-      if (granted) {
-        await api.revokeAuthorization(user.id, permissionApplication.id)
-        toast.success("已取消授权")
-      } else {
-        await api.grantAuthorization(user.id, permissionApplication.id)
-        toast.success("已授权")
+      for (const user of targets) {
+        if (action === "grant") {
+          await api.grantAuthorization(user.id, permissionApplication.id)
+        } else {
+          await api.revokeAuthorization(user.id, permissionApplication.id)
+        }
       }
       const nextAuthorizations = await api.authorizations()
       setAuthorizations(nextAuthorizations)
+      setSelectedUserIds([])
+      toast.success(action === "grant" ? "已授权" : "已解除")
     } catch (error) {
       toast.error((error as Error).message)
+    } finally {
+      setPermissionSubmitting(false)
     }
   }
 
@@ -442,6 +534,11 @@ export default function ApplicationsPage() {
           const application = row.original
           return (
             <div className="flex min-w-0 items-center gap-2">
+              <img
+                src={`data:image/png;base64,${application.icon}`}
+                alt=""
+                className="size-6 shrink-0 rounded-[4px]"
+              />
               <span className="truncate font-medium">{application.name}</span>
               {application.remoteAppRegistered && application.remoteAppAlias ? (
                 <span className="hidden truncate text-xs text-muted-foreground md:inline">
@@ -704,7 +801,7 @@ export default function ApplicationsPage() {
           <SheetHeader>
             <SheetTitle>{editingApplication ? "编辑应用" : "添加应用"}</SheetTitle>
             <SheetDescription>
-              {editingApplication ? "修改 RemoteApp 应用信息" : "发布一个新的 RemoteApp 应用"}
+              {editingApplication ? "修改应用基础信息" : "创建一个新的应用"}
             </SheetDescription>
           </SheetHeader>
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
@@ -713,69 +810,22 @@ export default function ApplicationsPage() {
               <Input
                 id="name"
                 value={form.name}
+                maxLength={maxApplicationNameLength}
+                title={applicationNameRuleMessage}
                 onChange={(event) => setForm({ ...form, name: event.target.value })}
               />
+              <p className="text-xs text-muted-foreground">{applicationNameRuleMessage}</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="path">应用路径</Label>
               <Input
                 id="path"
                 value={form.path}
+                title={applicationPathRuleMessage}
                 onChange={(event) => setForm({ ...form, path: event.target.value })}
               />
+              <p className="text-xs text-muted-foreground">{applicationPathRuleMessage}</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="arguments">启动参数</Label>
-              <Input
-                id="arguments"
-                value={form.arguments}
-                onChange={(event) => setForm({ ...form, arguments: event.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="workingDir">工作目录</Label>
-              <Input
-                id="workingDir"
-                value={form.workingDir}
-                onChange={(event) => setForm({ ...form, workingDir: event.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>状态</Label>
-              <Select
-                value={form.status}
-                onValueChange={(value) => setForm({ ...form, status: value as "active" | "disabled" })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">启用</SelectItem>
-                  <SelectItem value="disabled">禁用</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
-              <Label htmlFor="remoteAppRegistered">注册 RemoteApp</Label>
-              <Switch
-                id="remoteAppRegistered"
-                checked={form.remoteAppRegistered}
-                onCheckedChange={(checked) =>
-                  setForm({ ...form, remoteAppRegistered: Boolean(checked) })
-                }
-              />
-            </div>
-            {form.remoteAppRegistered ? (
-              <div className="space-y-2">
-                <Label htmlFor="remoteAppAlias">RemoteApp Alias</Label>
-                <Input
-                  id="remoteAppAlias"
-                  value={form.remoteAppAlias}
-                  placeholder="留空自动生成"
-                  onChange={(event) => setForm({ ...form, remoteAppAlias: event.target.value })}
-                />
-              </div>
-            ) : null}
             <SheetFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                 取消
@@ -788,7 +838,15 @@ export default function ApplicationsPage() {
         </SheetContent>
       </Sheet>
 
-      <Sheet open={permissionOpen} onOpenChange={setPermissionOpen}>
+      <Sheet
+        open={permissionOpen}
+        onOpenChange={(open: boolean) => {
+          setPermissionOpen(open)
+          if (!open) {
+            setSelectedUserIds([])
+          }
+        }}
+      >
         <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
           <SheetHeader>
             <SheetTitle>授权用户</SheetTitle>
@@ -802,20 +860,50 @@ export default function ApplicationsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-10">
+                    <div className="flex justify-center">
+                      <Checkbox
+                        aria-label="全选用户"
+                        checked={
+                          users.length
+                            ? selectedUserIds.length === users.length
+                              ? true
+                              : selectedUserIds.length > 0
+                                ? "indeterminate"
+                                : false
+                            : false
+                        }
+                        onCheckedChange={(checked) => toggleAllUsers(checked === true)}
+                        disabled={!users.length || permissionSubmitting}
+                      />
+                    </div>
+                  </TableHead>
                   <TableHead>用户</TableHead>
-                  <TableHead className="hidden md:table-cell">状态</TableHead>
-                  <TableHead className="text-center">权限</TableHead>
+                  <TableHead className="hidden md:table-cell">授权状态</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {permissionApplication ? (
                   users.length ? (
                     users.map((user) => {
-                      const granted = permissionAuthorizations.some(
-                        (item) => item.userId === user.id
-                      )
+                      const granted = grantedUserIdSet.has(user.id)
                       return (
-                        <TableRow key={user.id}>
+                        <TableRow
+                          key={user.id}
+                          data-state={selectedUserIdSet.has(user.id) && "selected"}
+                        >
+                          <TableCell className="w-10">
+                            <div className="flex justify-center">
+                              <Checkbox
+                                aria-label={`选择 ${user.displayName || user.username}`}
+                                checked={selectedUserIdSet.has(user.id)}
+                                onCheckedChange={(checked) =>
+                                  toggleUserSelection(user.id, checked === true)
+                                }
+                                disabled={permissionSubmitting}
+                              />
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <div className="font-medium">{user.displayName}</div>
                             <div className="text-xs text-muted-foreground">
@@ -823,24 +911,13 @@ export default function ApplicationsPage() {
                             </div>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
-                            <Badge
-                              variant={user.status === "active" ? "default" : "secondary"}
-                              className={
-                                user.status === "active" ? "bg-primary/20 text-primary" : ""
-                              }
-                            >
-                              {statusLabel(user.status)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Button
-                              size="sm"
-                              variant={granted ? "outline" : "default"}
-                              onClick={() => toggleAuthorization(user, granted)}
-                            >
-                              {granted ? "取消授权" : "授权"}
-                            </Button>
-                          </TableCell>
+                          <Badge
+                            variant={granted ? "default" : "secondary"}
+                            className={granted ? "bg-primary/20 text-primary" : ""}
+                          >
+                            {granted ? "已授权" : "无授权"}
+                          </Badge>
+                        </TableCell>
                         </TableRow>
                       )
                     })
@@ -860,6 +937,23 @@ export default function ApplicationsPage() {
                 )}
               </TableBody>
             </Table>
+          </div>
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => applyUserPermissions("revoke")}
+              disabled={!revokeTargets.length || permissionSubmitting}
+            >
+              解除
+            </Button>
+            <Button
+              type="button"
+              onClick={() => applyUserPermissions("grant")}
+              disabled={!grantTargets.length || permissionSubmitting}
+            >
+              授权
+            </Button>
           </div>
         </SheetContent>
       </Sheet>

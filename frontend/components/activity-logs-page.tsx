@@ -9,6 +9,7 @@ import {
   IconChevronRight,
   IconChevronsLeft,
   IconChevronsRight,
+  IconCircleX,
   IconRefresh,
   IconSearch,
 } from "@tabler/icons-react"
@@ -37,31 +38,18 @@ import {
 import { api, type ActivityLogItem } from "@/lib/api"
 import { formatRelativeTime } from "@/lib/format"
 
-export type ActivityLogFilter = "all" | "exceptions" | "activities"
-export type ActivityLogTypeFilter = "all" | "info" | "warn" | "error"
+export type ActivityLogFilter = "all" | "activity" | "alert" | "warn" | "error"
 
 const viewFilters: Array<{ value: ActivityLogFilter; label: string }> = [
   { value: "all", label: "全部记录" },
-  { value: "exceptions", label: "异常记录" },
-  { value: "activities", label: "信息记录" },
-]
-
-const typeFilters: Array<{ value: ActivityLogTypeFilter; label: string }> = [
-  { value: "all", label: "全部类型" },
-  { value: "info", label: "信息" },
+  { value: "activity", label: "活动" },
+  { value: "alert", label: "告警" },
   { value: "warn", label: "警告" },
-  { value: "error", label: "异常" },
+  { value: "error", label: "错误" },
 ]
 
 function normalizeViewFilter(value: string): ActivityLogFilter {
-  if (value === "all" || value === "exceptions" || value === "activities") {
-    return value
-  }
-  return "all"
-}
-
-function normalizeTypeFilter(value: string): ActivityLogTypeFilter {
-  if (value === "all" || value === "info" || value === "warn" || value === "error") {
+  if (value === "all" || value === "activity" || value === "alert" || value === "warn" || value === "error") {
     return value
   }
   return "all"
@@ -70,8 +58,8 @@ function normalizeTypeFilter(value: string): ActivityLogTypeFilter {
 function logMeta(item: ActivityLogItem) {
   if (item.level === "error") {
     return {
-      icon: IconAlertTriangle,
-      typeLabel: "异常",
+      icon: IconCircleX,
+      typeLabel: "错误",
       iconClassName: "text-red-500",
     }
   }
@@ -97,17 +85,13 @@ function matchesKeyword(item: ActivityLogItem, keyword: string) {
   }
 
   const meta = logMeta(item)
-  const haystack = [item.type, item.message, item.actorType, item.targetType, meta.typeLabel]
+  const haystack = [item.type, item.message, item.detail, item.source, item.actorType, item.targetType, meta.typeLabel]
     .join(" ")
     .toLowerCase()
   return haystack.includes(keyword)
 }
 
-function ActivityLogTable({
-  items,
-}: {
-  items: ActivityLogItem[]
-}) {
+function ActivityLogTable({ items }: { items: ActivityLogItem[] }) {
   if (!items.length) {
     return (
       <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
@@ -121,9 +105,11 @@ function ActivityLogTable({
       <Table>
         <TableHeader>
           <TableRow className="border-border/50 hover:bg-transparent">
-            <TableHead>日志主题</TableHead>
-            <TableHead>日志详情</TableHead>
-            <TableHead className="hidden md:table-cell">类型</TableHead>
+            <TableHead>主题</TableHead>
+            <TableHead>详情</TableHead>
+            <TableHead className="hidden md:table-cell">分类</TableHead>
+            <TableHead className="hidden md:table-cell">来源</TableHead>
+            <TableHead className="hidden lg:table-cell">补充</TableHead>
             <TableHead className="text-right">时间</TableHead>
           </TableRow>
         </TableHeader>
@@ -133,7 +119,7 @@ function ActivityLogTable({
             const Icon = meta.icon
 
             return (
-              <TableRow key={`${item.kind}-${item.id}`} className="border-border/50">
+              <TableRow key={item.id} className="border-border/50">
                 <TableCell className="whitespace-normal">
                   <div className="flex min-w-0 items-center gap-2">
                     <Icon className={`size-4 shrink-0 ${meta.iconClassName}`} />
@@ -145,8 +131,14 @@ function ActivityLogTable({
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   <Badge variant="outline" className="border-border/60 text-muted-foreground">
-                    {meta.typeLabel}
+                    {item.category === "alert" ? "告警" : "活动"}
                   </Badge>
+                </TableCell>
+                <TableCell className="hidden md:table-cell text-muted-foreground">
+                  {item.source}
+                </TableCell>
+                <TableCell className="hidden lg:table-cell max-w-[280px] truncate text-muted-foreground">
+                  {item.detail || "-"}
                 </TableCell>
                 <TableCell className="text-right text-muted-foreground">
                   {formatRelativeTime(item.createdAt)}
@@ -165,7 +157,6 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
   const [viewFilter, setViewFilter] = React.useState<ActivityLogFilter>(() =>
     normalizeViewFilter(initialFilter)
   )
-  const [typeFilter, setTypeFilter] = React.useState<ActivityLogTypeFilter>("all")
   const [search, setSearch] = React.useState("")
   const [items, setItems] = React.useState<ActivityLogItem[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -190,7 +181,7 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
 
   React.useEffect(() => {
     setPage(1)
-  }, [viewFilter, typeFilter, search, pageSize])
+  }, [viewFilter, search, pageSize])
 
   function changeViewFilter(nextFilter: string) {
     const normalized = normalizeViewFilter(nextFilter)
@@ -199,34 +190,25 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
   }
 
   const filteredItems = items.filter((item) => {
-    const matchesType = typeFilter === "all" || item.level === typeFilter
     const matchesSearch = matchesKeyword(item, search.trim().toLowerCase())
-    return matchesType && matchesSearch
+    return matchesSearch
   })
 
   const total = filteredItems.length
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const currentPage = Math.min(page, totalPages)
-  const pageItems = filteredItems.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  )
+  const pageItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   return (
     <DashboardShell>
       <div className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-4 py-6 lg:px-6 xl:mt-8">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-6 lg:px-6 xl:mt-8">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">活动日志</h1>
-              <p className="mt-1 text-sm text-muted-foreground">系统运行信息与异常记录</p>
+              <p className="mt-1 text-sm text-muted-foreground">系统活动、告警和异常记录</p>
             </div>
-            <Button
-              variant="outline"
-              className="gap-1.5"
-              disabled={loading}
-              onClick={() => loadLogs(viewFilter)}
-            >
+            <Button variant="outline" className="gap-1.5" disabled={loading} onClick={() => loadLogs(viewFilter)}>
               <IconRefresh className="size-4" />
               刷新
             </Button>
@@ -236,7 +218,7 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
             <div className="relative flex-1">
               <IconSearch className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="搜索日志主题或详情..."
+                placeholder="搜索主题、详情或来源..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 className="pl-9"
@@ -244,24 +226,8 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
             </div>
 
             <div className="flex items-center gap-3">
-              <Select
-                value={typeFilter}
-                onValueChange={(value) => setTypeFilter(normalizeTypeFilter(value))}
-              >
-                <SelectTrigger className="w-full md:w-[140px]">
-                  <SelectValue placeholder="全部类型" />
-                </SelectTrigger>
-                <SelectContent>
-                  {typeFilters.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
               <Select value={viewFilter} onValueChange={changeViewFilter}>
-                <SelectTrigger className="w-full md:w-[140px]">
+                <SelectTrigger className="w-full md:w-[160px]">
                   <SelectValue placeholder="全部记录" />
                 </SelectTrigger>
                 <SelectContent>
@@ -289,10 +255,7 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
                     <Label htmlFor="logs-rows-per-page" className="text-sm font-medium">
                       每页行数
                     </Label>
-                    <Select
-                      value={`${pageSize}`}
-                      onValueChange={(value) => setPageSize(Number(value))}
-                    >
+                    <Select value={`${pageSize}`} onValueChange={(value) => setPageSize(Number(value))}>
                       <SelectTrigger size="sm" className="w-20" id="logs-rows-per-page">
                         <SelectValue placeholder={pageSize} />
                       </SelectTrigger>

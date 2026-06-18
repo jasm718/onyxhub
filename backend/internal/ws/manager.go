@@ -17,7 +17,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type MessageHandler func(raw []byte)
+type MessageHandler func(raw []byte) error
 
 type Manager struct {
 	mu      sync.Mutex
@@ -189,7 +189,9 @@ func (m *Manager) readLoop(conn *websocket.Conn) {
 			log.Printf("agent websocket message handler is nil")
 			continue
 		}
-		handler(raw)
+		if err := handler(raw); err != nil {
+			log.Printf("agent websocket message handler failed: %v", err)
+		}
 	}
 }
 

@@ -26,6 +26,7 @@ export type Application = {
   id: string
   name: string
   path: string
+  icon: string
   arguments: string
   workingDir: string
   status: "active" | "disabled"
@@ -44,40 +45,6 @@ export type Authorization = {
   application: Application
 }
 
-export type ActivityLog = {
-  id: string
-  type: string
-  actorType: string
-  actorUserId: string
-  targetType: string
-  targetId: string
-  message: string
-  createdAt: string
-}
-
-export type AgentIssue = {
-  id: string
-  level: string
-  type: string
-  message: string
-  createdAt: string
-  readAt?: string
-}
-
-export type AgentStatus = {
-  id: string
-  hostname: string
-  cpuUsage: number
-  memoryUsage: number
-  gpuUsage: number
-  diskUsage: number
-  diskTotal: number
-  diskUsed: number
-  diskFree: number
-  diskDrive: string
-  reportedAt: string
-}
-
 export type Overview = {
   cards: {
     totalUsers: number
@@ -92,7 +59,19 @@ export type Overview = {
     storageDiskFree: number
     storageDiskDrive: string
   }
-  agentStatus: AgentStatus | null
+  agentStatus: {
+    id: string
+    hostname: string
+    cpuUsage: number
+    memoryUsage: number
+    gpuUsage: number
+    diskUsage: number
+    diskTotal: number
+    diskUsed: number
+    diskFree: number
+    diskDrive: string
+    reportedAt: string
+  } | null
   agentMetrics: Array<{
     reportedAt: string
     cpuUsage: number
@@ -115,19 +94,16 @@ export type Overview = {
   }
 }
 
-export type Notifications = {
-  exceptions: AgentIssue[]
-  unreadExceptionCount: number
-}
-
 export type ActivityLogItem = {
   id: string
-  kind: "activity" | "exception"
+  category: "activity" | "alert" | string
   level: "info" | "warn" | "error" | string
+  source: string
   type: string
   actorType: string
   targetType: string
   message: string
+  detail: string
   createdAt: string
   readAt?: string
 }
@@ -136,7 +112,12 @@ export type ActivityLogsResult = {
   items: ActivityLogItem[]
 }
 
-export type MarkNotificationsReadResult = {
+export type Notifications = {
+  items: ActivityLogItem[]
+  unreadCount: number
+}
+
+export type MarkLogReadResult = {
   updated: number
 }
 
@@ -283,9 +264,12 @@ export const api = {
     return request<Notifications>("/api/admin/notifications")
   },
   markNotificationsRead() {
-    return post<MarkNotificationsReadResult>("/api/admin/notifications/mark-all-read", {})
+    return post<MarkLogReadResult>("/api/admin/notifications/mark-all-read", {})
   },
-  activityLogs(filter?: "all" | "exceptions" | "activities") {
+  markNotificationRead(id: string) {
+    return post<MarkLogReadResult>("/api/admin/notifications/mark-read", { id })
+  },
+  activityLogs(filter?: "all" | "activity" | "alert" | "warn" | "error") {
     const query = filter ? `?filter=${encodeURIComponent(filter)}` : ""
     return request<ActivityLogsResult>(`/api/admin/activity-logs${query}`)
   },

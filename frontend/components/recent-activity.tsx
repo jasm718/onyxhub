@@ -19,7 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import type { ActivityLog } from "@/lib/api"
+import type { ActivityLogItem } from "@/lib/api"
 import { formatRelativeTime } from "@/lib/format"
 
 export function getActivityMeta(type: string) {
@@ -50,7 +50,7 @@ export function getActivityMeta(type: string) {
   return { icon: IconSettings, color: "text-muted-foreground" }
 }
 
-export function ActivityList({ activities }: { activities: ActivityLog[] }) {
+export function ActivityList({ activities }: { activities: ActivityLogItem[] }) {
   return (
     <div className="space-y-4">
       {activities.length ? (
@@ -83,7 +83,7 @@ export function ActivityList({ activities }: { activities: ActivityLog[] }) {
   )
 }
 
-export function RecentActivity({ activities }: { activities: ActivityLog[] }) {
+export function RecentActivity({ activities }: { activities: ActivityLogItem[] }) {
   return (
     <Card className="border-border/50 bg-card/50">
       <CardHeader>

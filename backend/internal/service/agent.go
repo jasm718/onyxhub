@@ -41,25 +41,25 @@ type sessionSnapshotItem struct {
 	ConnectedAt      time.Time `json:"connectedAt"`
 }
 
-func (s *Service) HandleAgentMessage(raw []byte) {
+func (s *Service) HandleAgentMessage(raw []byte) error {
 	var env agentEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
-		s.reportAgentIssue(nil, "error", "json_parse", "json 解析失败: %v", err)
-		return
+		return s.reportLog(nil, models.LogCategoryAlert, models.LogLevelError, models.LogSourceAgent, "json_parse", "json 解析失败", err.Error(), models.TargetTypeSystem, models.SingleAgentID)
 	}
 
 	switch env.Type {
 	case "host_status":
 		if err := s.handleHostStatus(raw); err != nil {
-			s.reportAgentIssue(nil, "error", "host_status", "%v", err)
+			return s.reportSystemAlert(nil, models.LogLevelError, "host_status", err.Error(), err.Error())
 		}
 	case "session_snapshot":
 		if err := s.handleSessionSnapshot(raw); err != nil {
-			s.reportAgentIssue(nil, "error", "session_snapshot", "%v", err)
+			return s.reportSystemAlert(nil, models.LogLevelError, "session_snapshot", err.Error(), err.Error())
 		}
 	default:
-		s.reportAgentIssue(nil, "warn", "unknown_type", "未知消息类型: %s", env.Type)
+		return s.reportLog(nil, models.LogCategoryAlert, models.LogLevelWarn, models.LogSourceAgent, "unknown_type", "未知消息类型", env.Type, models.TargetTypeSystem, models.SingleAgentID)
 	}
+	return nil
 }
 
 func (s *Service) handleHostStatus(raw []byte) error {
@@ -78,15 +78,21 @@ func (s *Service) handleHostStatus(raw []byte) error {
 	}
 	diskValid := true
 	if msg.DiskUsage < 0 || msg.DiskUsage > 100 {
-		s.reportAgentIssue(nil, "error", "host_status", "host_status 磁盘使用率无效: %.2f", msg.DiskUsage)
+		if err := s.reportLog(nil, models.LogCategoryAlert, models.LogLevelError, models.LogSourceAgent, "host_status", "host_status 磁盘使用率无效", fmt.Sprintf("%.2f", msg.DiskUsage), models.TargetTypeSystem, models.SingleAgentID); err != nil {
+			return err
+		}
 		diskValid = false
 	}
 	if msg.DiskTotal <= 0 || msg.DiskUsed < 0 || msg.DiskFree < 0 {
-		s.reportAgentIssue(nil, "error", "host_status", "host_status 磁盘空间无效: total=%d used=%d free=%d", msg.DiskTotal, msg.DiskUsed, msg.DiskFree)
+		if err := s.reportLog(nil, models.LogCategoryAlert, models.LogLevelError, models.LogSourceAgent, "host_status", "host_status 磁盘空间无效", fmt.Sprintf("total=%d used=%d free=%d", msg.DiskTotal, msg.DiskUsed, msg.DiskFree), models.TargetTypeSystem, models.SingleAgentID); err != nil {
+			return err
+		}
 		diskValid = false
 	}
 	if trim(msg.DiskDrive) == "" {
-		s.reportAgentIssue(nil, "error", "host_status", "host_status 缺少 diskDrive")
+		if err := s.reportLog(nil, models.LogCategoryAlert, models.LogLevelError, models.LogSourceAgent, "host_status", "host_status 缺少 diskDrive", "", models.TargetTypeSystem, models.SingleAgentID); err != nil {
+			return err
+		}
 		diskValid = false
 	}
 
@@ -162,14 +168,17 @@ func (s *Service) handleSessionSnapshot(raw []byte) error {
 	present := make(map[string]bool)
 	return s.withTx(func(tx *gorm.DB) error {
 		for _, item := range msg.Sessions {
-			remoteSessionID, user, ok := s.validSessionSnapshotItem(tx, agentStatus.Hostname, item)
+			remoteSessionID, user, ok, err := s.validSessionSnapshotItem(tx, agentStatus.Hostname, item)
+			if err != nil {
+				return err
+			}
 			if !ok {
 				continue
 			}
 			present[remoteSessionID] = true
 
 			var session models.Session
-			err := tx.First(&session, "remote_session_id = ?", remoteSessionID).Error
+			err = tx.First(&session, "remote_session_id = ?", remoteSessionID).Error
 			if err != nil && !isNotFound(err) {
 				return fmt.Errorf("查询 session 失败: %w", err)
 			}
@@ -227,34 +236,44 @@ func (s *Service) handleSessionSnapshot(raw []byte) error {
 	})
 }
 
-func (s *Service) validSessionSnapshotItem(tx *gorm.DB, hostname string, item sessionSnapshotItem) (string, models.User, bool) {
+func (s *Service) validSessionSnapshotItem(tx *gorm.DB, hostname string, item sessionSnapshotItem) (string, models.User, bool, error) {
 	if item.WindowsSessionID == nil {
-		s.reportAgentIssue(tx, "warn", "session_snapshot", "session_snapshot 缺少 windowsSessionId")
-		return "", models.User{}, false
+		if err := s.reportLog(tx, models.LogCategoryAlert, models.LogLevelWarn, models.LogSourceAgent, "session_snapshot", "session_snapshot 缺少 windowsSessionId", "", models.TargetTypeSystem, models.SingleAgentID); err != nil {
+			return "", models.User{}, false, err
+		}
+		return "", models.User{}, false, nil
 	}
 	windowsUsername := trim(item.WindowsUsername)
 	if windowsUsername == "" {
-		s.reportAgentIssue(tx, "warn", "session_snapshot", "session_snapshot 缺少 windowsUsername")
-		return "", models.User{}, false
+		if err := s.reportLog(tx, models.LogCategoryAlert, models.LogLevelWarn, models.LogSourceAgent, "session_snapshot", "session_snapshot 缺少 windowsUsername", "", models.TargetTypeSystem, models.SingleAgentID); err != nil {
+			return "", models.User{}, false, err
+		}
+		return "", models.User{}, false, nil
 	}
 	if strings.EqualFold(windowsUsername, "administrator") {
-		return "", models.User{}, false
+		return "", models.User{}, false, nil
 	}
 	if item.ConnectedAt.IsZero() {
-		s.reportAgentIssue(tx, "warn", "session_snapshot", "session_snapshot 缺少 connectedAt")
-		return "", models.User{}, false
+		if err := s.reportLog(tx, models.LogCategoryAlert, models.LogLevelWarn, models.LogSourceAgent, "session_snapshot", "session_snapshot 缺少 connectedAt", "", models.TargetTypeSystem, models.SingleAgentID); err != nil {
+			return "", models.User{}, false, err
+		}
+		return "", models.User{}, false, nil
 	}
 
 	var user models.User
 	result := tx.Where("windows_username = ?", windowsUsername).Limit(1).Find(&user)
 	if result.Error != nil {
-		s.reportAgentIssue(tx, "error", "session_snapshot", "查询 windowsUsername 失败: %v", result.Error)
-		return "", models.User{}, false
+		if err := s.reportLog(tx, models.LogCategoryAlert, models.LogLevelError, models.LogSourceAgent, "session_snapshot", "查询 windowsUsername 失败", result.Error.Error(), models.TargetTypeSystem, models.SingleAgentID); err != nil {
+			return "", models.User{}, false, err
+		}
+		return "", models.User{}, false, nil
 	}
 	if result.RowsAffected == 0 {
-		s.reportAgentIssue(tx, "warn", "session_snapshot", "windowsUsername 找不到用户: %s", windowsUsername)
-		return "", models.User{}, false
+		if err := s.reportLog(tx, models.LogCategoryAlert, models.LogLevelWarn, models.LogSourceAgent, "session_snapshot", "windowsUsername 找不到用户", windowsUsername, models.TargetTypeSystem, models.SingleAgentID); err != nil {
+			return "", models.User{}, false, err
+		}
+		return "", models.User{}, false, nil
 	}
 
-	return models.RemoteSessionID(hostname, *item.WindowsSessionID, item.ConnectedAt), user, true
+	return models.RemoteSessionID(hostname, *item.WindowsSessionID, item.ConnectedAt), user, true, nil
 }

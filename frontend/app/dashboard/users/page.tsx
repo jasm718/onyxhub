@@ -40,6 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -104,6 +105,32 @@ function toForm(user: User): UserFormState {
 }
 
 const usersPageSize = 10
+const maxUsernameLength = 15
+const minPasswordLength = 6
+const usernameRuleMessage = `最长 ${maxUsernameLength} 位，只能包含大小写字母和数字`
+const passwordRuleMessage = `最短 ${minPasswordLength} 位，只能包含大小写字母、数字、@ . _ -`
+const usernamePattern = /^[A-Za-z0-9]+$/
+const passwordPattern = /^[A-Za-z0-9@._-]+$/
+
+function validateUserForm(form: UserFormState, editingUser: User | null) {
+  if (!form.username) {
+    return "登录名不能为空"
+  }
+  if (form.username.length > maxUsernameLength || !usernamePattern.test(form.username)) {
+    return usernameRuleMessage
+  }
+
+  if (!editingUser || form.password) {
+    if (!form.password) {
+      return "密码不能为空"
+    }
+    if (form.password.length < minPasswordLength || !passwordPattern.test(form.password)) {
+      return passwordRuleMessage
+    }
+  }
+
+  return null
+}
 
 function UsersTableToolbar({
   table,
@@ -285,6 +312,8 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = React.useState<User | null>(null)
   const [permissionUser, setPermissionUser] = React.useState<User | null>(null)
   const [deletingUser, setDeletingUser] = React.useState<User | null>(null)
+  const [permissionSubmitting, setPermissionSubmitting] = React.useState(false)
+  const [selectedApplicationIds, setSelectedApplicationIds] = React.useState<string[]>([])
   const [form, setForm] = React.useState<UserFormState>(emptyForm)
 
   const authorizationByUser = React.useMemo(() => {
@@ -296,6 +325,34 @@ export default function UsersPage() {
     }
     return map
   }, [authorizations])
+
+  const selectedApplicationIdSet = React.useMemo(
+    () => new Set(selectedApplicationIds),
+    [selectedApplicationIds]
+  )
+  const grantedApplicationIdSet = React.useMemo(
+    () =>
+      new Set(
+        permissionUser
+          ? (authorizationByUser.get(permissionUser.id) || []).map((item) => item.applicationId)
+          : []
+      ),
+    [authorizationByUser, permissionUser]
+  )
+  const selectedApplications = React.useMemo(
+    () => applications.filter((application) => selectedApplicationIdSet.has(application.id)),
+    [applications, selectedApplicationIdSet]
+  )
+  const grantTargets = React.useMemo(
+    () =>
+      selectedApplications.filter((application) => !grantedApplicationIdSet.has(application.id)),
+    [grantedApplicationIdSet, selectedApplications]
+  )
+  const revokeTargets = React.useMemo(
+    () =>
+      selectedApplications.filter((application) => grantedApplicationIdSet.has(application.id)),
+    [grantedApplicationIdSet, selectedApplications]
+  )
 
   async function loadData() {
     setLoading(true)
@@ -333,11 +390,30 @@ export default function UsersPage() {
 
   function openPermissions(user: User) {
     setPermissionUser(user)
+    setSelectedApplicationIds([])
     setPermissionOpen(true)
+  }
+
+  function toggleApplicationSelection(applicationId: string, checked: boolean) {
+    setSelectedApplicationIds((current) => {
+      if (checked) {
+        return current.includes(applicationId) ? current : [...current, applicationId]
+      }
+      return current.filter((id) => id !== applicationId)
+    })
+  }
+
+  function toggleAllApplications(checked: boolean) {
+    setSelectedApplicationIds(checked ? applications.map((application) => application.id) : [])
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const validationError = validateUserForm(form, editingUser)
+    if (validationError) {
+      toast.error(validationError)
+      return
+    }
     setSubmitting(true)
     try {
       if (editingUser) {
@@ -390,23 +466,33 @@ export default function UsersPage() {
     }
   }
 
-  async function toggleAuthorization(application: Application, granted: boolean) {
+  async function applyApplicationPermissions(action: "grant" | "revoke") {
     if (!permissionUser) {
       return
     }
 
+    const targets = action === "grant" ? grantTargets : revokeTargets
+    if (!targets.length) {
+      return
+    }
+
+    setPermissionSubmitting(true)
     try {
-      if (granted) {
-        await api.revokeAuthorization(permissionUser.id, application.id)
-        toast.success("已取消授权")
-      } else {
-        await api.grantAuthorization(permissionUser.id, application.id)
-        toast.success("已授权")
+      for (const application of targets) {
+        if (action === "grant") {
+          await api.grantAuthorization(permissionUser.id, application.id)
+        } else {
+          await api.revokeAuthorization(permissionUser.id, application.id)
+        }
       }
       const nextAuthorizations = await api.authorizations()
       setAuthorizations(nextAuthorizations)
+      setSelectedApplicationIds([])
+      toast.success(action === "grant" ? "已授权" : "已解除")
     } catch (error) {
       toast.error((error as Error).message)
+    } finally {
+      setPermissionSubmitting(false)
     }
   }
 
@@ -678,25 +764,26 @@ export default function UsersPage() {
             </SheetDescription>
           </SheetHeader>
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="username">登录名</Label>
-                <Input
-                  id="username"
-                  value={form.username}
-                  disabled={Boolean(editingUser)}
-                  maxLength={20}
-                  onChange={(event) => setForm({ ...form, username: event.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="displayName">展示名称</Label>
-                <Input
-                  id="displayName"
-                  value={form.displayName}
-                  onChange={(event) => setForm({ ...form, displayName: event.target.value })}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="username">登录名</Label>
+              <Input
+                id="username"
+                value={form.username}
+                disabled={Boolean(editingUser)}
+                maxLength={maxUsernameLength}
+                pattern={usernamePattern.source}
+                title={usernameRuleMessage}
+                onChange={(event) => setForm({ ...form, username: event.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">{usernameRuleMessage}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="displayName">实际名称</Label>
+              <Input
+                id="displayName"
+                value={form.displayName}
+                onChange={(event) => setForm({ ...form, displayName: event.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">
@@ -707,8 +794,15 @@ export default function UsersPage() {
                 type="password"
                 value={form.password}
                 placeholder={editingUser ? "留空表示不修改" : ""}
+                minLength={minPasswordLength}
+                pattern={passwordPattern.source}
+                title={passwordRuleMessage}
                 onChange={(event) => setForm({ ...form, password: event.target.value })}
               />
+              <p className="text-xs text-muted-foreground">
+                {passwordRuleMessage}
+                {editingUser ? "，留空表示不修改" : ""}
+              </p>
             </div>
             <input type="hidden" value={form.role} readOnly />
             <input type="hidden" value={form.status} readOnly />
@@ -724,7 +818,15 @@ export default function UsersPage() {
         </SheetContent>
       </Sheet>
 
-      <Sheet open={permissionOpen} onOpenChange={setPermissionOpen}>
+      <Sheet
+        open={permissionOpen}
+        onOpenChange={(open: boolean) => {
+          setPermissionOpen(open)
+          if (!open) {
+            setSelectedApplicationIds([])
+          }
+        }}
+      >
         <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
           <SheetHeader>
             <SheetTitle>应用权限</SheetTitle>
@@ -736,24 +838,51 @@ export default function UsersPage() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-10">
+                    <div className="flex justify-center">
+                      <Checkbox
+                        aria-label="全选应用"
+                        checked={
+                          applications.length
+                            ? selectedApplicationIds.length === applications.length
+                              ? true
+                              : selectedApplicationIds.length > 0
+                                ? "indeterminate"
+                                : false
+                            : false
+                        }
+                        onCheckedChange={(checked) =>
+                          toggleAllApplications(checked === true)
+                        }
+                        disabled={!applications.length || permissionSubmitting}
+                      />
+                    </div>
+                  </TableHead>
                   <TableHead>应用</TableHead>
-                  <TableHead className="text-center">状态</TableHead>
-                  <TableHead className="text-center">权限</TableHead>
+                  <TableHead className="text-center">授权状态</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {applications.length ? (
                   applications.map((application) => {
-                    const granted = Boolean(
-                      permissionUser &&
-                        authorizations.some(
-                          (item) =>
-                            item.userId === permissionUser.id &&
-                            item.applicationId === application.id
-                        )
-                    )
+                    const granted = grantedApplicationIdSet.has(application.id)
                     return (
-                      <TableRow key={application.id}>
+                      <TableRow
+                        key={application.id}
+                        data-state={selectedApplicationIdSet.has(application.id) && "selected"}
+                      >
+                        <TableCell className="w-10">
+                          <div className="flex justify-center">
+                            <Checkbox
+                              aria-label={`选择 ${application.name}`}
+                              checked={selectedApplicationIdSet.has(application.id)}
+                              onCheckedChange={(checked) =>
+                                toggleApplicationSelection(application.id, checked === true)
+                              }
+                              disabled={permissionSubmitting}
+                            />
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <div className="font-medium">{application.name}</div>
                           <div className="max-w-[260px] truncate text-xs text-muted-foreground">
@@ -762,22 +891,11 @@ export default function UsersPage() {
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge
-                            variant={application.status === "active" ? "default" : "secondary"}
-                            className={
-                              application.status === "active" ? "bg-primary/20 text-primary" : ""
-                            }
+                            variant={granted ? "default" : "secondary"}
+                            className={granted ? "bg-primary/20 text-primary" : ""}
                           >
-                            {statusLabel(application.status)}
+                            {granted ? "已授权" : "无授权"}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant={granted ? "outline" : "default"}
-                            onClick={() => toggleAuthorization(application, granted)}
-                          >
-                            {granted ? "取消授权" : "授权"}
-                          </Button>
                         </TableCell>
                       </TableRow>
                     )
@@ -791,6 +909,23 @@ export default function UsersPage() {
                 )}
               </TableBody>
             </Table>
+          </div>
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => applyApplicationPermissions("revoke")}
+              disabled={!revokeTargets.length || permissionSubmitting}
+            >
+              解除
+            </Button>
+            <Button
+              type="button"
+              onClick={() => applyApplicationPermissions("grant")}
+              disabled={!grantTargets.length || permissionSubmitting}
+            >
+              授权
+            </Button>
           </div>
         </SheetContent>
       </Sheet>

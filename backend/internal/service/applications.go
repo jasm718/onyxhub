@@ -114,6 +114,7 @@ func (s *Service) CreateApplication(actorUserID string, input CreateApplicationI
 		ID:                  models.NewID("app"),
 		Name:                name,
 		Path:                path,
+		Icon:                models.DefaultApplicationIcon,
 		Arguments:           trim(input.Arguments),
 		WorkingDir:          trim(input.WorkingDir),
 		Status:              status,
@@ -135,6 +136,14 @@ func (s *Service) CreateApplication(actorUserID string, input CreateApplicationI
 	if err := s.withTx(func(tx *gorm.DB) error {
 		if err := tx.Create(&application).Error; err != nil {
 			return fmt.Errorf("创建应用失败: %w", err)
+		}
+		icon, err := s.FetchApplicationIcon(FetchApplicationIconInput{Path: application.Path})
+		if err != nil {
+			return err
+		}
+		application.Icon = icon.IconBase64
+		if err := tx.Model(&application).Update("icon", application.Icon).Error; err != nil {
+			return fmt.Errorf("更新应用图标失败: %w", err)
 		}
 		return s.logActivity(tx, models.ActivityApplicationCreated, models.ActorTypeAdmin, actorUserID, models.TargetTypeApplication, application.ID, "新增应用 "+application.Name)
 	}); err != nil {

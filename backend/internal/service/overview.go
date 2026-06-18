@@ -56,18 +56,20 @@ type ConnectionDurationPoint struct {
 }
 
 type OverviewNotifications struct {
-	Exceptions           []models.AgentIssue `json:"exceptions"`
-	UnreadExceptionCount int64               `json:"unreadExceptionCount"`
+	Items       []ActivityLogItem `json:"items"`
+	UnreadCount int64             `json:"unreadCount"`
 }
 
 type ActivityLogItem struct {
 	ID         string     `json:"id"`
-	Kind       string     `json:"kind"`
+	Category   string     `json:"category"`
 	Level      string     `json:"level"`
+	Source     string     `json:"source"`
 	Type       string     `json:"type"`
 	ActorType  string     `json:"actorType"`
 	TargetType string     `json:"targetType"`
 	Message    string     `json:"message"`
+	Detail     string     `json:"detail"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	ReadAt     *time.Time `json:"readAt,omitempty"`
 }
@@ -76,7 +78,7 @@ type ActivityLogsResult struct {
 	Items []ActivityLogItem `json:"items"`
 }
 
-type MarkAgentIssuesReadResult struct {
+type MarkLogReadResult struct {
 	Updated int64 `json:"updated"`
 }
 
@@ -136,19 +138,42 @@ func (s *Service) GetOverview() (Overview, error) {
 func (s *Service) GetNotifications() (OverviewNotifications, error) {
 	since := s.now().AddDate(0, 0, -7)
 
-	var exceptions []models.AgentIssue
-	if err := s.db.Where("created_at >= ?", since).Order("created_at desc").Limit(50).Find(&exceptions).Error; err != nil {
-		return OverviewNotifications{}, fmt.Errorf("查询异常信息失败: %w", err)
+	var items []models.ActivityLog
+	if err := s.db.
+		Where("category = ? AND level IN ? AND created_at >= ? AND read_at IS NULL", models.LogCategoryAlert, []string{models.LogLevelWarn, models.LogLevelError}, since).
+		Order("created_at desc").
+		Limit(50).
+		Find(&items).Error; err != nil {
+		return OverviewNotifications{}, fmt.Errorf("查询通知失败: %w", err)
 	}
 
 	var unreadCount int64
-	if err := s.db.Model(&models.AgentIssue{}).Where("read_at IS NULL").Count(&unreadCount).Error; err != nil {
-		return OverviewNotifications{}, fmt.Errorf("统计未读异常失败: %w", err)
+	if err := s.db.Model(&models.ActivityLog{}).
+		Where("category = ? AND level IN ? AND read_at IS NULL", models.LogCategoryAlert, []string{models.LogLevelWarn, models.LogLevelError}).
+		Count(&unreadCount).Error; err != nil {
+		return OverviewNotifications{}, fmt.Errorf("统计未读通知失败: %w", err)
+	}
+
+	result := make([]ActivityLogItem, 0, len(items))
+	for _, row := range items {
+		result = append(result, ActivityLogItem{
+			ID:         row.ID,
+			Category:   row.Category,
+			Level:      row.Level,
+			Source:     row.Source,
+			Type:       row.Type,
+			ActorType:  row.ActorType,
+			TargetType: row.TargetType,
+			Message:    row.Message,
+			Detail:     row.Detail,
+			CreatedAt:  row.CreatedAt,
+			ReadAt:     row.ReadAt,
+		})
 	}
 
 	return OverviewNotifications{
-		Exceptions:           exceptions,
-		UnreadExceptionCount: unreadCount,
+		Items:       result,
+		UnreadCount: unreadCount,
 	}, nil
 }
 
@@ -157,68 +182,86 @@ func (s *Service) ListActivityLogs(filter string) (ActivityLogsResult, error) {
 	if filter == "" {
 		filter = "all"
 	}
-	if filter != "all" && filter != "exceptions" && filter != "activities" {
-		return ActivityLogsResult{}, fmt.Errorf("活动日志筛选类型无效: %s", filter)
+	if filter != "all" && filter != "activity" && filter != "alert" && filter != "error" && filter != "warn" {
+		return ActivityLogsResult{}, fmt.Errorf("日志筛选类型无效: %s", filter)
 	}
 
-	items := make([]ActivityLogItem, 0, 100)
-	if filter != "activities" {
-		var exceptions []models.AgentIssue
-		if err := s.db.Order("created_at desc").Limit(100).Find(&exceptions).Error; err != nil {
-			return ActivityLogsResult{}, fmt.Errorf("查询异常日志失败: %w", err)
-		}
-		for _, item := range exceptions {
-			items = append(items, ActivityLogItem{
-				ID:         item.ID,
-				Kind:       "exception",
-				Level:      item.Level,
-				Type:       item.Type,
-				ActorType:  models.ActorTypeSystem,
-				TargetType: models.TargetTypeSystem,
-				Message:    item.Message,
-				CreatedAt:  item.CreatedAt,
-				ReadAt:     item.ReadAt,
-			})
-		}
-	}
-	if filter != "exceptions" {
-		var activities []models.ActivityLog
-		if err := s.db.Order("created_at desc").Limit(100).Find(&activities).Error; err != nil {
-			return ActivityLogsResult{}, fmt.Errorf("查询活动日志失败: %w", err)
-		}
-		for _, item := range activities {
-			items = append(items, ActivityLogItem{
-				ID:         item.ID,
-				Kind:       "activity",
-				Level:      "info",
-				Type:       item.Type,
-				ActorType:  item.ActorType,
-				TargetType: item.TargetType,
-				Message:    item.Message,
-				CreatedAt:  item.CreatedAt,
-			})
-		}
+	query := s.db.Model(&models.ActivityLog{})
+	switch filter {
+	case "activity":
+		query = query.Where("category = ?", models.LogCategoryActivity)
+	case "alert":
+		query = query.Where("category = ?", models.LogCategoryAlert)
+	case "error":
+		query = query.Where("category = ? AND level = ?", models.LogCategoryAlert, models.LogLevelError)
+	case "warn":
+		query = query.Where("category = ? AND level = ?", models.LogCategoryAlert, models.LogLevelWarn)
 	}
 
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].CreatedAt.After(items[j].CreatedAt)
-	})
-	if len(items) > 100 {
-		items = items[:100]
+	var rows []models.ActivityLog
+	if err := query.Order("created_at desc").Limit(100).Find(&rows).Error; err != nil {
+		return ActivityLogsResult{}, fmt.Errorf("查询日志失败: %w", err)
+	}
+
+	items := make([]ActivityLogItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, ActivityLogItem{
+			ID:         row.ID,
+			Category:   row.Category,
+			Level:      row.Level,
+			Source:     row.Source,
+			Type:       row.Type,
+			ActorType:  row.ActorType,
+			TargetType: row.TargetType,
+			Message:    row.Message,
+			Detail:     row.Detail,
+			CreatedAt:  row.CreatedAt,
+			ReadAt:     row.ReadAt,
+		})
 	}
 
 	return ActivityLogsResult{Items: items}, nil
 }
 
-func (s *Service) MarkAllAgentIssuesRead() (MarkAgentIssuesReadResult, error) {
+func (s *Service) MarkAllLogAlertsRead() (MarkLogReadResult, error) {
 	now := s.now()
-	result := s.db.Model(&models.AgentIssue{}).
-		Where("read_at IS NULL").
+	result := s.db.Model(&models.ActivityLog{}).
+		Where("category = ? AND level IN ? AND read_at IS NULL", models.LogCategoryAlert, []string{models.LogLevelWarn, models.LogLevelError}).
 		Update("read_at", now)
 	if result.Error != nil {
-		return MarkAgentIssuesReadResult{}, fmt.Errorf("标记异常已读失败: %w", result.Error)
+		return MarkLogReadResult{}, fmt.Errorf("标记日志已读失败: %w", result.Error)
 	}
-	return MarkAgentIssuesReadResult{Updated: result.RowsAffected}, nil
+	return MarkLogReadResult{Updated: result.RowsAffected}, nil
+}
+
+func (s *Service) MarkLogRead(id string) (MarkLogReadResult, error) {
+	id, err := requireID(id)
+	if err != nil {
+		return MarkLogReadResult{}, err
+	}
+
+	var logItem models.ActivityLog
+	if err := s.db.First(&logItem, "id = ?", id).Error; err != nil {
+		if isNotFound(err) {
+			return MarkLogReadResult{}, fmt.Errorf("日志不存在")
+		}
+		return MarkLogReadResult{}, fmt.Errorf("查询日志失败: %w", err)
+	}
+	if logItem.ReadAt != nil {
+		return MarkLogReadResult{Updated: 0}, nil
+	}
+	if logItem.Category != models.LogCategoryAlert || (logItem.Level != models.LogLevelWarn && logItem.Level != models.LogLevelError) {
+		return MarkLogReadResult{}, fmt.Errorf("仅告警日志可标记已读")
+	}
+
+	now := s.now()
+	result := s.db.Model(&models.ActivityLog{}).
+		Where("id = ?", id).
+		Update("read_at", now)
+	if result.Error != nil {
+		return MarkLogReadResult{}, fmt.Errorf("标记日志已读失败: %w", result.Error)
+	}
+	return MarkLogReadResult{Updated: result.RowsAffected}, nil
 }
 
 func (s *Service) agentMetrics() ([]AgentMetricPoint, error) {
