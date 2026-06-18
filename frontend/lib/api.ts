@@ -86,7 +86,7 @@ export type Overview = {
     activeApplications: number
     activeSessions: number
     agentOnline: boolean
-    agentUptimeSeconds: number
+    serviceUptimeSeconds: number
     storageDiskTotal: number
     storageDiskUsed: number
     storageDiskFree: number

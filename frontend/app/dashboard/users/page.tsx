@@ -2,11 +2,29 @@
 
 import * as React from "react"
 import {
-  IconClock,
-  IconPlus,
-  IconSearch,
-  IconUsers,
-} from "@tabler/icons-react"
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Clock,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Power,
+  RotateCcw,
+  Search,
+  Shield,
+  Trash2,
+} from "lucide-react"
+import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  useReactTable,
+  type ColumnDef,
+  type Table as TanStackTable,
+} from "@tanstack/react-table"
 import { toast } from "sonner"
 
 import { DashboardShell } from "@/components/dashboard-shell"
@@ -23,12 +41,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -53,7 +71,8 @@ import {
   type Authorization,
   type User,
 } from "@/lib/api"
-import { formatDateTime, roleLabel, statusLabel } from "@/lib/format"
+import { formatDateTime, statusLabel } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 type UserFormState = {
   id: string
@@ -84,11 +103,181 @@ function toForm(user: User): UserFormState {
   }
 }
 
+const usersPageSize = 10
+
+function UsersTableToolbar({
+  table,
+  onCreate,
+}: {
+  table: TanStackTable<User>
+  onCreate: () => void
+}) {
+  const isFiltered = Boolean(table.getState().globalFilter)
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="搜索登录名、展示名称..."
+            value={(table.getState().globalFilter as string) ?? ""}
+            onChange={(event) => table.setGlobalFilter(event.target.value)}
+            className="h-8 w-full pl-8"
+          />
+        </div>
+        {isFiltered ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2"
+            onClick={() => {
+              table.setGlobalFilter("")
+            }}
+          >
+            重置
+            <RotateCcw className="size-4" />
+          </Button>
+        ) : null}
+      </div>
+
+      <Button className="h-8 shrink-0 gap-2" onClick={onCreate}>
+        <Plus className="size-4" />
+        添加用户
+      </Button>
+    </div>
+  )
+}
+
+function getPageNumbers(currentPage: number, totalPages: number) {
+  const pages: Array<number | "..."> = []
+  const siblingCount = 1
+  const startPage = Math.max(2, currentPage - siblingCount)
+  const endPage = Math.min(totalPages - 1, currentPage + siblingCount)
+
+  pages.push(1)
+
+  if (startPage > 2) {
+    pages.push("...")
+  }
+
+  for (let page = startPage; page <= endPage; page += 1) {
+    pages.push(page)
+  }
+
+  if (endPage < totalPages - 1) {
+    pages.push("...")
+  }
+
+  if (totalPages > 1) {
+    pages.push(totalPages)
+  }
+
+  return pages
+}
+
+function UsersTablePagination({
+  table,
+  className,
+}: {
+  table: TanStackTable<User>
+  className?: string
+}) {
+  const filteredRows = table.getFilteredRowModel().rows.length
+  const currentPage = table.getState().pagination.pageIndex + 1
+  const totalPages = Math.max(table.getPageCount(), 1)
+  const pageNumbers = getPageNumbers(currentPage, totalPages)
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-4 px-2 sm:flex-row sm:items-center sm:justify-between",
+        className
+      )}
+    >
+      <div className="text-sm text-muted-foreground">
+        共 {filteredRows} 个用户
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
+        <div className="flex items-center gap-2">
+          <div className="w-20 text-center text-sm font-medium">
+            {currentPage} / {totalPages} 页
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="hidden size-8 sm:flex"
+            onClick={() => table.setPageIndex(0)}
+            disabled={!table.getCanPreviousPage()}
+          >
+            <span className="sr-only">第一页</span>
+            <ChevronsLeft className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            <span className="sr-only">上一页</span>
+            <ChevronLeft className="size-4" />
+          </Button>
+          {pageNumbers.map((pageNumber, index) =>
+            pageNumber === "..." ? (
+              <span
+                key={`ellipsis-${index}`}
+                className="px-1 text-sm text-muted-foreground"
+              >
+                ...
+              </span>
+            ) : (
+              <Button
+                key={pageNumber}
+                variant={currentPage === pageNumber ? "default" : "outline"}
+                className="h-8 min-w-8 px-2"
+                onClick={() => table.setPageIndex(pageNumber - 1)}
+              >
+                <span className="sr-only">第 {pageNumber} 页</span>
+                {pageNumber}
+              </Button>
+            )
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            <span className="sr-only">下一页</span>
+            <ChevronRight className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="hidden size-8 sm:flex"
+            onClick={() => table.setPageIndex(Math.max(table.getPageCount() - 1, 0))}
+            disabled={!table.getCanNextPage()}
+          >
+            <span className="sr-only">最后一页</span>
+            <ChevronsRight className="size-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function UsersPage() {
   const [users, setUsers] = React.useState<User[]>([])
   const [applications, setApplications] = React.useState<Application[]>([])
   const [authorizations, setAuthorizations] = React.useState<Authorization[]>([])
-  const [search, setSearch] = React.useState("")
+  const [globalFilter, setGlobalFilter] = React.useState("")
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: usersPageSize,
+  })
   const [loading, setLoading] = React.useState(true)
   const [submitting, setSubmitting] = React.useState(false)
   const [formOpen, setFormOpen] = React.useState(false)
@@ -97,17 +286,6 @@ export default function UsersPage() {
   const [permissionUser, setPermissionUser] = React.useState<User | null>(null)
   const [deletingUser, setDeletingUser] = React.useState<User | null>(null)
   const [form, setForm] = React.useState<UserFormState>(emptyForm)
-
-  const filteredUsers = users.filter((user) => {
-    const keyword = search.trim().toLowerCase()
-    if (!keyword) {
-      return true
-    }
-    return [user.username, user.displayName, user.windowsUsername, user.role]
-      .join(" ")
-      .toLowerCase()
-      .includes(keyword)
-  })
 
   const authorizationByUser = React.useMemo(() => {
     const map = new Map<string, Authorization[]>()
@@ -232,149 +410,261 @@ export default function UsersPage() {
     }
   }
 
+  const columns = React.useMemo<ColumnDef<User>[]>(
+    () => [
+      {
+        accessorKey: "displayName",
+        header: "用户",
+        cell: ({ row }) => {
+          const user = row.original
+          return (
+            <div className="min-w-0">
+              <div className="truncate font-medium">{user.displayName}</div>
+            </div>
+          )
+        },
+      },
+      {
+        accessorKey: "username",
+        header: "登录名",
+        cell: ({ row }) => (
+          <div className="min-w-0">
+            <div className="truncate">{row.original.username}</div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "状态",
+        cell: ({ row }) => {
+          const isActive = row.original.status === "active"
+          return (
+            <Badge
+              variant={isActive ? "default" : "secondary"}
+              className={isActive ? "bg-primary/20 text-primary" : ""}
+            >
+              {statusLabel(row.original.status)}
+            </Badge>
+          )
+        },
+      },
+      {
+        id: "authorizedApplications",
+        header: "授权应用",
+        cell: ({ row }) => {
+          const text =
+            authorizationByUser
+              .get(row.original.id)
+              ?.map((item) => item.application.name)
+              .join("、") || "-"
+          return (
+            <span className="block max-w-full truncate text-muted-foreground">
+              {text}
+            </span>
+          )
+        },
+      },
+      {
+        accessorKey: "lastLoginAt",
+        header: "最后登录",
+        cell: ({ row }) => (
+          <span className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+            <Clock className="size-3 shrink-0" />
+            <span className="truncate">{formatDateTime(row.original.lastLoginAt)}</span>
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          const user = row.original
+          return (
+            <div className="flex justify-end">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground data-[state=open]:bg-muted"
+                  >
+                    <MoreHorizontal className="size-4" />
+                    <span className="sr-only">打开操作菜单</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-36 rounded-[6px] bg-popover"
+                >
+                  <DropdownMenuItem onClick={() => openEditForm(user)}>
+                    <Pencil className="size-4" />
+                    编辑
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openPermissions(user)}>
+                    <Shield className="size-4" />
+                    权限
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => toggleStatus(user)}>
+                    <Power className="size-4" />
+                    {user.status === "active" ? "禁用" : "启用"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => openDeleteConfirm(user)}
+                  >
+                    <Trash2 className="size-4" />
+                    删除
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )
+        },
+        enableHiding: false,
+      },
+    ],
+    [authorizationByUser]
+  )
+
+  const table = useReactTable({
+    data: users,
+    columns,
+    state: {
+      globalFilter,
+      pagination,
+    },
+    getRowId: (row) => row.id,
+    onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: setPagination,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const keyword = String(filterValue ?? "").trim().toLowerCase()
+      if (!keyword) {
+        return true
+      }
+
+      return [
+        row.original.username,
+        row.original.displayName,
+        row.original.windowsUsername,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword)
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  })
+  const currentRows = table.getRowModel().rows
+  const visibleColumnCount = table.getVisibleLeafColumns().length
+  const emptyRowCount = loading
+    ? 0
+    : Math.max(usersPageSize - Math.max(currentRows.length, 1), 0)
+
   return (
     <DashboardShell>
       <div className="flex flex-1 flex-col">
-        <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
-            <Card className="border-border/50 bg-card/50">
-              <CardHeader>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <IconUsers className="size-5 text-primary" />
-                      用户管理
-                    </CardTitle>
-                    <CardDescription>管理平台用户和访问权限</CardDescription>
-                  </div>
-                  <Button className="gap-2" onClick={openCreateForm}>
-                    <IconPlus className="size-4" />
-                    添加用户
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4 flex flex-col gap-4 sm:flex-row">
-                  <div className="relative flex-1">
-                    <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="搜索用户名、展示名称或 Windows 用户名..."
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
+        <div className="@container/main flex flex-1 flex-col">
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6 md:gap-6 lg:px-6 xl:mt-8">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">用户管理</h2>
+                <p className="text-muted-foreground">
+                  管理平台用户和访问权限
+                </p>
+              </div>
+            </div>
 
-                <div className="rounded-lg border border-border/50">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-border/50 hover:bg-transparent">
-                        <TableHead>用户</TableHead>
-                        <TableHead className="hidden md:table-cell">角色</TableHead>
-                        <TableHead className="text-center">状态</TableHead>
-                        <TableHead className="text-center">授权应用</TableHead>
-                        <TableHead className="hidden md:table-cell">最后登录</TableHead>
-                        <TableHead className="text-center">操作</TableHead>
+            <div className="flex flex-col gap-4">
+              <div role="toolbar">
+                <UsersTableToolbar table={table} onCreate={openCreateForm} />
+              </div>
+              <div className="overflow-hidden rounded-[6px] border">
+                <Table className="table-fixed">
+                  <TableHeader className="bg-muted/50">
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <TableHead
+                            key={header.id}
+                            colSpan={header.colSpan}
+                            className={cn(
+                              header.column.id === "displayName" && "w-[22%]",
+                              header.column.id === "username" && "w-[16%]",
+                              header.column.id === "status" && "w-[12%]",
+                              header.column.id === "authorizedApplications" && "w-[30%]",
+                              header.column.id === "lastLoginAt" && "w-[18%]",
+                              header.column.id === "actions" && "w-[8%] text-right"
+                            )}
+                          >
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </TableHead>
+                        ))}
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {loading ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                            正在加载用户...
-                          </TableCell>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={columns.length}
+                          className="h-24 text-center text-muted-foreground"
+                        >
+                          正在加载用户...
+                        </TableCell>
+                      </TableRow>
+                    ) : currentRows.length ? (
+                      currentRows.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          data-state={row.getIsSelected() && "selected"}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell
+                              key={cell.id}
+                              className={cn(
+                                cell.column.id === "actions" && "text-right"
+                              )}
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          ))}
                         </TableRow>
-                      ) : filteredUsers.length ? (
-                        filteredUsers.map((user) => {
-                          const grants = authorizationByUser.get(user.id) || []
-                          return (
-                            <TableRow key={user.id} className="border-border/50">
-                              <TableCell className="font-medium">
-                                <div>{user.displayName}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {user.username}
-                                  {user.windowsUsername ? ` · ${user.windowsUsername}` : ""}
-                                </div>
-                              </TableCell>
-                              <TableCell className="hidden md:table-cell">
-                                {roleLabel(user.role)}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Badge
-                                  variant={user.status === "active" ? "default" : "secondary"}
-                                  className={user.status === "active" ? "bg-primary/20 text-primary" : ""}
-                                >
-                                  {statusLabel(user.status)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {grants.length ? grants.map((item) => item.application.name).join("、") : "-"}
-                              </TableCell>
-                              <TableCell className="hidden md:table-cell">
-                                <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                                  <IconClock className="size-3" />
-                                  {formatDateTime(user.lastLoginAt)}
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center justify-center text-sm">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                                    onClick={() => openEditForm(user)}
-                                  >
-                                    编辑
-                                  </Button>
-                                  <span className="h-4 w-px bg-border" aria-hidden="true" />
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                                    onClick={() => openPermissions(user)}
-                                  >
-                                    权限
-                                  </Button>
-                                  <span className="h-4 w-px bg-border" aria-hidden="true" />
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                                    onClick={() => toggleStatus(user)}
-                                  >
-                                    {user.status === "active" ? "禁用" : "启用"}
-                                  </Button>
-                                  <span className="h-4 w-px bg-border" aria-hidden="true" />
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                    onClick={() => openDeleteConfirm(user)}
-                                  >
-                                    删除
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                            暂无用户
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                <div className="mt-4 flex items-center text-sm text-muted-foreground">
-                  <span>共 {filteredUsers.length} 个用户</span>
-                </div>
-              </CardContent>
-            </Card>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={visibleColumnCount}
+                          className="h-12 text-center text-muted-foreground"
+                        >
+                          暂无用户
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {Array.from({ length: emptyRowCount }).map((_, index) => (
+                      <TableRow
+                        key={`empty-row-${index}`}
+                        aria-hidden="true"
+                        className="hover:bg-transparent"
+                      >
+                        <TableCell colSpan={visibleColumnCount} className="h-12">
+                          &nbsp;
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <UsersTablePagination table={table} />
+            </div>
           </div>
         </div>
       </div>
@@ -390,10 +680,12 @@ export default function UsersPage() {
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="username">用户名</Label>
+                <Label htmlFor="username">登录名</Label>
                 <Input
                   id="username"
                   value={form.username}
+                  disabled={Boolean(editingUser)}
+                  maxLength={20}
                   onChange={(event) => setForm({ ...form, username: event.target.value })}
                 />
               </div>
@@ -469,7 +761,14 @@ export default function UsersPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
-                          {statusLabel(application.status)}
+                          <Badge
+                            variant={application.status === "active" ? "default" : "secondary"}
+                            className={
+                              application.status === "active" ? "bg-primary/20 text-primary" : ""
+                            }
+                          >
+                            {statusLabel(application.status)}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-center">
                           <Button

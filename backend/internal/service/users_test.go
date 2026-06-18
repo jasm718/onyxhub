@@ -5,26 +5,27 @@ import (
 	"time"
 )
 
-func TestGenerateWindowsUsername(t *testing.T) {
-	svc := &Service{now: func() time.Time {
-		return time.Unix(1735689600, 0)
-	}}
-
-	got, err := svc.generateWindowsUsername("zhangsan")
+func TestRequireWindowsUsernameUsesLoginName(t *testing.T) {
+	got, err := requireWindowsUsername("zhangsan")
 	if err != nil {
-		t.Fatalf("generateWindowsUsername returned error: %v", err)
+		t.Fatalf("requireWindowsUsername returned error: %v", err)
 	}
-	if got != "zhangsan_9600" {
+	if got != "zhangsan" {
 		t.Fatalf("unexpected windows username: %s", got)
 	}
 }
 
-func TestGenerateWindowsUsernameRejectsLongUsername(t *testing.T) {
-	svc := &Service{now: time.Now}
-
-	_, err := svc.generateWindowsUsername("abcdefghijklmn")
+func TestRequireWindowsUsernameRejectsLongUsername(t *testing.T) {
+	_, err := requireWindowsUsername("abcdefghijklmnopqrstu")
 	if err == nil {
 		t.Fatal("expected error for long username")
+	}
+}
+
+func TestRequireWindowsUsernameRejectsInvalidCharacters(t *testing.T) {
+	_, err := requireWindowsUsername("zhang/san")
+	if err == nil {
+		t.Fatal("expected error for invalid username")
 	}
 }
 

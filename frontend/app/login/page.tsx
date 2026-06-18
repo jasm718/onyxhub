@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { IconLock, IconLogin2 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -13,25 +12,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
 import { getAuthToken, setAuth } from "@/lib/auth"
 
 export default function LoginPage() {
   const router = useRouter()
+  const [hydrated, setHydrated] = React.useState(false)
   const [username, setUsername] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
 
   React.useEffect(() => {
+    setHydrated(true)
     if (getAuthToken()) {
       router.replace("/dashboard")
     }
   }, [router])
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function submitLogin() {
     if (!username.trim() || !password) {
       toast.error("请输入用户名和密码")
       return
@@ -51,6 +50,11 @@ export default function LoginPage() {
     }
   }
 
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await submitLogin()
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm border-border/50 bg-card/80">
@@ -67,27 +71,35 @@ export default function LoginPage() {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <Label htmlFor="username">用户名</Label>
-              <Input
+              <input
                 id="username"
                 autoComplete="username"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
+                disabled={!hydrated || submitting}
+                className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">密码</Label>
-              <Input
+              <input
                 id="password"
                 type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                disabled={!hydrated || submitting}
+                className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
               />
             </div>
-            <Button className="w-full gap-2" type="submit" disabled={submitting}>
+            <button
+              className="inline-flex h-8 w-full shrink-0 items-center justify-center gap-1.5 rounded-lg border border-transparent bg-primary px-2.5 py-1 text-sm font-medium text-primary-foreground outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+              type="submit"
+              disabled={!hydrated || submitting}
+            >
               <IconLogin2 className="size-4" />
               {submitting ? "登录中..." : "登录"}
-            </Button>
+            </button>
           </form>
         </CardContent>
       </Card>

@@ -2,13 +2,29 @@
 
 import * as React from "react"
 import {
-  IconApps,
-  IconCheck,
-  IconPlus,
-  IconSearch,
-  IconUsers,
-  IconX,
-} from "@tabler/icons-react"
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Power,
+  RotateCcw,
+  Search,
+  Shield,
+  Trash2,
+  Users,
+} from "lucide-react"
+import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  useReactTable,
+  type ColumnDef,
+  type Table as TanStackTable,
+} from "@tanstack/react-table"
 import { toast } from "sonner"
 
 import { DashboardShell } from "@/components/dashboard-shell"
@@ -25,12 +41,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -58,11 +74,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   api,
   type Application,
   type Authorization,
+  type User,
 } from "@/lib/api"
-import { formatDateTime, statusLabel } from "@/lib/format"
+import { statusLabel } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 type ApplicationFormState = {
   id: string
@@ -99,11 +123,181 @@ function toForm(application: Application): ApplicationFormState {
   }
 }
 
+const applicationsPageSize = 10
+
+function ApplicationsTableToolbar({
+  table,
+  onCreate,
+}: {
+  table: TanStackTable<Application>
+  onCreate: () => void
+}) {
+  const isFiltered = Boolean(table.getState().globalFilter)
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="搜索应用名称或路径..."
+            value={(table.getState().globalFilter as string) ?? ""}
+            onChange={(event) => table.setGlobalFilter(event.target.value)}
+            className="h-8 w-full pl-8"
+          />
+        </div>
+        {isFiltered ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2"
+            onClick={() => {
+              table.setGlobalFilter("")
+            }}
+          >
+            重置
+            <RotateCcw className="size-4" />
+          </Button>
+        ) : null}
+      </div>
+
+      <Button className="h-8 shrink-0 gap-2" onClick={onCreate}>
+        <Plus className="size-4" />
+        添加应用
+      </Button>
+    </div>
+  )
+}
+
+function getPageNumbers(currentPage: number, totalPages: number) {
+  const pages: Array<number | "..."> = []
+  const siblingCount = 1
+  const startPage = Math.max(2, currentPage - siblingCount)
+  const endPage = Math.min(totalPages - 1, currentPage + siblingCount)
+
+  pages.push(1)
+
+  if (startPage > 2) {
+    pages.push("...")
+  }
+
+  for (let page = startPage; page <= endPage; page += 1) {
+    pages.push(page)
+  }
+
+  if (endPage < totalPages - 1) {
+    pages.push("...")
+  }
+
+  if (totalPages > 1) {
+    pages.push(totalPages)
+  }
+
+  return pages
+}
+
+function ApplicationsTablePagination({
+  table,
+  className,
+}: {
+  table: TanStackTable<Application>
+  className?: string
+}) {
+  const filteredRows = table.getFilteredRowModel().rows.length
+  const currentPage = table.getState().pagination.pageIndex + 1
+  const totalPages = Math.max(table.getPageCount(), 1)
+  const pageNumbers = getPageNumbers(currentPage, totalPages)
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-4 px-2 sm:flex-row sm:items-center sm:justify-between",
+        className
+      )}
+    >
+      <div className="text-sm text-muted-foreground">
+        共 {filteredRows} 个应用
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
+        <div className="flex items-center gap-2">
+          <div className="w-20 text-center text-sm font-medium">
+            {currentPage} / {totalPages} 页
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="hidden size-8 sm:flex"
+            onClick={() => table.setPageIndex(0)}
+            disabled={!table.getCanPreviousPage()}
+          >
+            <span className="sr-only">第一页</span>
+            <ChevronsLeft className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            <span className="sr-only">上一页</span>
+            <ChevronLeft className="size-4" />
+          </Button>
+          {pageNumbers.map((pageNumber, index) =>
+            pageNumber === "..." ? (
+              <span
+                key={`ellipsis-${index}`}
+                className="px-1 text-sm text-muted-foreground"
+              >
+                ...
+              </span>
+            ) : (
+              <Button
+                key={pageNumber}
+                variant={currentPage === pageNumber ? "default" : "outline"}
+                className="h-8 min-w-8 px-2"
+                onClick={() => table.setPageIndex(pageNumber - 1)}
+              >
+                <span className="sr-only">第 {pageNumber} 页</span>
+                {pageNumber}
+              </Button>
+            )
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            <span className="sr-only">下一页</span>
+            <ChevronRight className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="hidden size-8 sm:flex"
+            onClick={() => table.setPageIndex(Math.max(table.getPageCount() - 1, 0))}
+            disabled={!table.getCanNextPage()}
+          >
+            <span className="sr-only">最后一页</span>
+            <ChevronsRight className="size-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ApplicationsPage() {
   const [applications, setApplications] = React.useState<Application[]>([])
   const [authorizations, setAuthorizations] = React.useState<Authorization[]>([])
-  const [search, setSearch] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState("all")
+  const [users, setUsers] = React.useState<User[]>([])
+  const [globalFilter, setGlobalFilter] = React.useState("")
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: applicationsPageSize,
+  })
   const [loading, setLoading] = React.useState(true)
   const [submitting, setSubmitting] = React.useState(false)
   const [formOpen, setFormOpen] = React.useState(false)
@@ -112,18 +306,6 @@ export default function ApplicationsPage() {
   const [permissionApplication, setPermissionApplication] = React.useState<Application | null>(null)
   const [deletingApplication, setDeletingApplication] = React.useState<Application | null>(null)
   const [form, setForm] = React.useState<ApplicationFormState>(emptyForm)
-
-  const filteredApps = applications.filter((application) => {
-    const keyword = search.trim().toLowerCase()
-    const matchesSearch =
-      !keyword ||
-      [application.name, application.path]
-        .join(" ")
-        .toLowerCase()
-        .includes(keyword)
-    const matchesStatus = statusFilter === "all" || application.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
 
   const authorizationByApplication = React.useMemo(() => {
     const map = new Map<string, Authorization[]>()
@@ -138,12 +320,14 @@ export default function ApplicationsPage() {
   async function loadData() {
     setLoading(true)
     try {
-      const [nextApplications, nextAuthorizations] = await Promise.all([
+      const [nextApplications, nextAuthorizations, nextUsers] = await Promise.all([
         api.applications(),
         api.authorizations(),
+        api.users(),
       ])
       setApplications(nextApplications)
       setAuthorizations(nextAuthorizations)
+      setUsers(nextUsers)
     } catch (error) {
       toast.error((error as Error).message)
     } finally {
@@ -225,10 +409,19 @@ export default function ApplicationsPage() {
     }
   }
 
-  async function revokeAuthorization(item: Authorization) {
+  async function toggleAuthorization(user: User, granted: boolean) {
+    if (!permissionApplication) {
+      return
+    }
+
     try {
-      await api.revokeAuthorization(item.userId, item.applicationId)
-      toast.success("已取消授权")
+      if (granted) {
+        await api.revokeAuthorization(user.id, permissionApplication.id)
+        toast.success("已取消授权")
+      } else {
+        await api.grantAuthorization(user.id, permissionApplication.id)
+        toast.success("已授权")
+      }
       const nextAuthorizations = await api.authorizations()
       setAuthorizations(nextAuthorizations)
     } catch (error) {
@@ -236,174 +429,272 @@ export default function ApplicationsPage() {
     }
   }
 
-  const permissionItems = permissionApplication
+  const permissionAuthorizations = permissionApplication
     ? authorizationByApplication.get(permissionApplication.id) || []
     : []
+
+  const columns = React.useMemo<ColumnDef<Application>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "应用",
+        cell: ({ row }) => {
+          const application = row.original
+          return (
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate font-medium">{application.name}</span>
+              {application.remoteAppRegistered && application.remoteAppAlias ? (
+                <span className="hidden truncate text-xs text-muted-foreground md:inline">
+                  {application.remoteAppAlias}
+                </span>
+              ) : null}
+            </div>
+          )
+        },
+        enableHiding: false,
+      },
+      {
+        accessorKey: "path",
+        header: "路径",
+        cell: ({ row }) => (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="block max-w-full truncate text-muted-foreground">
+                  {row.original.path}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent
+                side="top"
+                align="start"
+                className="max-w-[520px] whitespace-normal break-all text-left"
+              >
+                {row.original.path}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "状态",
+        cell: ({ row }) => {
+          const isActive = row.original.status === "active"
+          return (
+            <Badge
+              variant={isActive ? "default" : "secondary"}
+              className={isActive ? "bg-primary/20 text-primary" : ""}
+            >
+              {statusLabel(row.original.status)}
+            </Badge>
+          )
+        },
+      },
+      {
+        id: "authorizedUsers",
+        header: "授权",
+        cell: ({ row }) => {
+          const count =
+            authorizationByApplication.get(row.original.id)?.length ?? 0
+          return (
+            <div className="flex items-center gap-2">
+              <Users className="size-4 text-muted-foreground" />
+              <span>{count}</span>
+            </div>
+          )
+        },
+      },
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          const application = row.original
+          return (
+            <div className="flex justify-end">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground data-[state=open]:bg-muted"
+                  >
+                    <MoreHorizontal className="size-4" />
+                    <span className="sr-only">打开操作菜单</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-36 rounded-[6px] bg-popover"
+                >
+                  <DropdownMenuItem onClick={() => openEditForm(application)}>
+                    <Pencil className="size-4" />
+                    编辑
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openPermissions(application)}>
+                    <Shield className="size-4" />
+                    权限
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => toggleStatus(application)}>
+                    <Power className="size-4" />
+                    {application.status === "active" ? "禁用" : "启用"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => openDeleteConfirm(application)}
+                  >
+                    <Trash2 className="size-4" />
+                    删除
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )
+        },
+        enableSorting: false,
+        enableHiding: false,
+      },
+    ],
+    [authorizationByApplication]
+  )
+
+  const table = useReactTable({
+    data: applications,
+    columns,
+    state: {
+      globalFilter,
+      pagination,
+    },
+    getRowId: (row) => row.id,
+    onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: setPagination,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const keyword = String(filterValue ?? "").trim().toLowerCase()
+      if (!keyword) {
+        return true
+      }
+
+      return [
+        row.original.name,
+        row.original.path,
+        row.original.remoteAppAlias,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword)
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  })
+  const currentRows = table.getRowModel().rows
+  const visibleColumnCount = table.getVisibleLeafColumns().length
+  const emptyRowCount = loading
+    ? 0
+    : Math.max(applicationsPageSize - Math.max(currentRows.length, 1), 0)
 
   return (
     <DashboardShell>
       <div className="flex flex-1 flex-col">
-        <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
-            <Card className="border-border/50 bg-card/50">
-              <CardHeader>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <IconApps className="size-5 text-primary" />
-                      应用管理
-                    </CardTitle>
-                    <CardDescription>管理和发布 RemoteApp 应用程序</CardDescription>
-                  </div>
-                  <Button className="gap-2" onClick={openCreateForm}>
-                    <IconPlus className="size-4" />
-                    添加应用
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4 flex flex-col gap-4 sm:flex-row">
-                  <div className="relative flex-1">
-                    <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="搜索应用名称或路径..."
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full sm:w-[150px]">
-                      <SelectValue placeholder="状态筛选" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全部状态</SelectItem>
-                      <SelectItem value="active">已启用</SelectItem>
-                      <SelectItem value="disabled">已禁用</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        <div className="@container/main flex flex-1 flex-col">
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6 md:gap-6 lg:px-6 xl:mt-8">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">应用管理</h2>
+                <p className="text-muted-foreground">
+                  发布并管理虚拟云应用程序
+                </p>
+              </div>
+            </div>
 
-                <div className="rounded-lg border border-border/50">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-border/50 hover:bg-transparent">
-                        <TableHead>应用名称</TableHead>
-                        <TableHead className="hidden md:table-cell">路径</TableHead>
-                        <TableHead className="text-center">状态</TableHead>
-                        <TableHead className="text-center">授权用户</TableHead>
-                        <TableHead className="hidden lg:table-cell">更新时间</TableHead>
-                        <TableHead className="text-center">操作</TableHead>
+            <div className="flex flex-col gap-4">
+              <div role="toolbar">
+                <ApplicationsTableToolbar table={table} onCreate={openCreateForm} />
+              </div>
+              <div className="overflow-hidden rounded-[6px] border">
+                <Table className="table-fixed">
+                  <TableHeader className="bg-muted/50">
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <TableHead
+                            key={header.id}
+                            colSpan={header.colSpan}
+                            className={cn(
+                              header.column.id === "name" && "w-[24%]",
+                              header.column.id === "path" && "w-[48%]",
+                              header.column.id === "status" && "w-[12%]",
+                              header.column.id === "authorizedUsers" && "w-[8%]",
+                              header.column.id === "actions" && "w-[8%] text-right"
+                            )}
+                          >
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </TableHead>
+                        ))}
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {loading ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                            正在加载应用...
-                          </TableCell>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={columns.length}
+                          className="h-24 text-center text-muted-foreground"
+                        >
+                          正在加载应用...
+                        </TableCell>
+                      </TableRow>
+                    ) : currentRows.length ? (
+                      currentRows.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          data-state={row.getIsSelected() && "selected"}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell
+                              key={cell.id}
+                              className={cn(
+                                cell.column.id === "actions" && "text-right"
+                              )}
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
+                            </TableCell>
+                          ))}
                         </TableRow>
-                      ) : filteredApps.length ? (
-                        filteredApps.map((application) => {
-                          const grants = authorizationByApplication.get(application.id) || []
-                          return (
-                            <TableRow key={application.id} className="border-border/50">
-                              <TableCell className="font-medium">
-                                <div>{application.name}</div>
-                                {application.remoteAppRegistered ? (
-                                  <div className="text-xs text-muted-foreground">
-                                    RemoteApp · {application.remoteAppAlias}
-                                  </div>
-                                ) : null}
-                              </TableCell>
-                              <TableCell className="hidden max-w-[220px] truncate text-muted-foreground md:table-cell">
-                                {application.path}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Badge
-                                  variant={application.status === "active" ? "default" : "secondary"}
-                                  className={application.status === "active" ? "bg-primary/20 text-primary" : ""}
-                                >
-                                  {application.status === "active" ? (
-                                    <>
-                                      <IconCheck className="mr-1 size-3" />
-                                      启用
-                                    </>
-                                  ) : (
-                                    <>
-                                      <IconX className="mr-1 size-3" />
-                                      禁用
-                                    </>
-                                  )}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <span className="flex items-center justify-center gap-1">
-                                  <IconUsers className="size-4 text-muted-foreground" />
-                                  {grants.length}
-                                </span>
-                              </TableCell>
-                              <TableCell className="hidden lg:table-cell text-muted-foreground">
-                                {formatDateTime(application.updatedAt)}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center justify-center text-sm">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                                    onClick={() => openEditForm(application)}
-                                  >
-                                    编辑
-                                  </Button>
-                                  <span className="h-4 w-px bg-border" aria-hidden="true" />
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                                    onClick={() => openPermissions(application)}
-                                  >
-                                    权限
-                                  </Button>
-                                  <span className="h-4 w-px bg-border" aria-hidden="true" />
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                                    onClick={() => toggleStatus(application)}
-                                  >
-                                    {application.status === "active" ? "禁用" : "启用"}
-                                  </Button>
-                                  <span className="h-4 w-px bg-border" aria-hidden="true" />
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                    onClick={() => openDeleteConfirm(application)}
-                                  >
-                                    删除
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                            暂无应用
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                <div className="mt-4 flex items-center text-sm text-muted-foreground">
-                  <span>共 {filteredApps.length} 个应用</span>
-                </div>
-              </CardContent>
-            </Card>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={visibleColumnCount}
+                          className="h-12 text-center text-muted-foreground"
+                        >
+                          暂无应用
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {Array.from({ length: emptyRowCount }).map((_, index) => (
+                      <TableRow
+                        key={`empty-row-${index}`}
+                        aria-hidden="true"
+                        className="hover:bg-transparent"
+                      >
+                        <TableCell colSpan={visibleColumnCount} className="h-12">
+                          &nbsp;
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <ApplicationsTablePagination table={table} />
+            </div>
           </div>
         </div>
       </div>
@@ -502,7 +793,9 @@ export default function ApplicationsPage() {
           <SheetHeader>
             <SheetTitle>授权用户</SheetTitle>
             <SheetDescription>
-              {permissionApplication ? `查看 ${permissionApplication.name} 的授权用户` : "查看应用授权用户"}
+              {permissionApplication
+                ? `为 ${permissionApplication.name} 选择可授权用户`
+                : "为应用选择可授权用户"}
             </SheetDescription>
           </SheetHeader>
           <div className="mt-6 rounded-lg border border-border/50">
@@ -510,36 +803,58 @@ export default function ApplicationsPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>用户</TableHead>
-                  <TableHead className="hidden md:table-cell">授权时间</TableHead>
-                  <TableHead className="text-center">操作</TableHead>
+                  <TableHead className="hidden md:table-cell">状态</TableHead>
+                  <TableHead className="text-center">权限</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {permissionItems.length ? (
-                  permissionItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="font-medium">{item.user.displayName}</div>
-                        <div className="text-xs text-muted-foreground">{item.user.username}</div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
-                        {formatDateTime(item.createdAt)}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => revokeAuthorization(item)}
-                        >
-                          取消授权
-                        </Button>
+                {permissionApplication ? (
+                  users.length ? (
+                    users.map((user) => {
+                      const granted = permissionAuthorizations.some(
+                        (item) => item.userId === user.id
+                      )
+                      return (
+                        <TableRow key={user.id}>
+                          <TableCell>
+                            <div className="font-medium">{user.displayName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {user.username}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <Badge
+                              variant={user.status === "active" ? "default" : "secondary"}
+                              className={
+                                user.status === "active" ? "bg-primary/20 text-primary" : ""
+                              }
+                            >
+                              {statusLabel(user.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              size="sm"
+                              variant={granted ? "outline" : "default"}
+                              onClick={() => toggleAuthorization(user, granted)}
+                            >
+                              {granted ? "取消授权" : "授权"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                        暂无用户
                       </TableCell>
                     </TableRow>
-                  ))
+                  )
                 ) : (
                   <TableRow>
                     <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                      暂无授权用户
+                      暂无用户
                     </TableCell>
                   </TableRow>
                 )}

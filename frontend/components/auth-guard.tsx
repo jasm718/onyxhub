@@ -3,7 +3,7 @@
 import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
 
-import { getAuthToken } from "@/lib/auth"
+import { clearAuth, getAuthToken } from "@/lib/auth"
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -11,7 +11,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = React.useState(false)
 
   React.useEffect(() => {
-    const token = getAuthToken()
+    let token: string | null = null
+    try {
+      token = getAuthToken()
+    } catch {
+      clearAuth()
+    }
     if (!token) {
       const next = encodeURIComponent(pathname || "/dashboard")
       router.replace(`/login?next=${next}`)

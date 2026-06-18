@@ -90,8 +90,6 @@ func (s *Service) handleHostStatus(raw []byte) error {
 		diskValid = false
 	}
 
-	s.recordAgentHeartbeat(s.now())
-
 	var previousStatus models.AgentStatus
 	hasPreviousStatus := false
 	if !diskValid {

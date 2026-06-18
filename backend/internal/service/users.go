@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"unicode"
 	"time"
 
 	"onyxhub/backend/internal/auth"
@@ -31,7 +30,7 @@ type UpdateUserInput struct {
 	Status      *string `json:"status"`
 }
 
-const maxWindowsUsernameBaseLength = 13
+const maxWindowsUsernameLength = 20
 
 func (s *Service) ListUsers() ([]PublicUser, error) {
 	var users []models.User
@@ -75,7 +74,7 @@ func (s *Service) CreateUser(actorUserID string, input CreateUserInput) (PublicU
 	windowsUsername := ""
 	if role == models.RoleUser {
 		var err error
-		windowsUsername, err = s.generateWindowsUsername(username)
+		windowsUsername, err = requireWindowsUsername(username)
 		if err != nil {
 			return PublicUser{}, err
 		}
@@ -173,6 +172,9 @@ func (s *Service) UpdateUser(actorUserID string, input UpdateUserInput) (PublicU
 		nextUsername = trim(*input.Username)
 		if nextUsername == "" {
 			return PublicUser{}, errors.New("用户名不能为空")
+		}
+		if user.Role == models.RoleUser && nextUsername != user.Username {
+			return PublicUser{}, errors.New("暂不支持修改用户名")
 		}
 	}
 	if input.DisplayName != nil {
@@ -314,43 +316,16 @@ func (s *Service) DeleteUser(actorUserID string, id string) error {
 	})
 }
 
-func (s *Service) generateWindowsUsername(username string) (string, error) {
+func requireWindowsUsername(username string) (string, error) {
 	username = trim(username)
 	if username == "" {
-		return "", errors.New("用户名不能为空")
+		return "", errors.New("Windows 用户名不能为空")
 	}
-	if len([]rune(username)) > maxWindowsUsernameBaseLength {
-		return "", fmt.Errorf("用户名长度不能超过 %d 位", maxWindowsUsernameBaseLength)
+	if len([]rune(username)) > maxWindowsUsernameLength {
+		return "", fmt.Errorf("Windows 用户名长度不能超过 %d 位", maxWindowsUsernameLength)
 	}
-
-	base := normalizeWindowsUsernameBase(username)
-	if base == "" {
-		return "", errors.New("用户名不能生成有效的 Windows 用户名")
+	if strings.ContainsAny(username, `\/":;|=,+*?<>[]`) {
+		return "", errors.New("Windows 用户名包含非法字符")
 	}
-
-	suffix := fmt.Sprintf("%04d", s.now().Unix()%10000)
-	windowsUsername := base + "_" + suffix
-	if len([]rune(windowsUsername)) > 18 {
-		return "", errors.New("Windows 用户名长度超限")
-	}
-	return windowsUsername, nil
-}
-
-func normalizeWindowsUsernameBase(username string) string {
-	var b []rune
-	for _, r := range strings.ToLower(strings.TrimSpace(username)) {
-		switch {
-		case unicode.IsLetter(r), unicode.IsDigit(r):
-			b = append(b, r)
-		case r == '_':
-			b = append(b, r)
-		default:
-			b = append(b, '_')
-		}
-	}
-	base := strings.Trim(string(b), "_")
-	if len([]rune(base)) > maxWindowsUsernameBaseLength {
-		base = string([]rune(base)[:maxWindowsUsernameBaseLength])
-	}
-	return base
+	return username, nil
 }

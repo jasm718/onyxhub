@@ -7,6 +7,8 @@ import {
   IconCheck,
   IconChevronLeft,
   IconChevronRight,
+  IconChevronsLeft,
+  IconChevronsRight,
   IconRefresh,
   IconSearch,
 } from "@tabler/icons-react"
@@ -16,6 +18,7 @@ import { DashboardShell } from "@/components/dashboard-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -167,6 +170,7 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
   const [items, setItems] = React.useState<ActivityLogItem[]>([])
   const [loading, setLoading] = React.useState(true)
   const [page, setPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(10)
 
   const loadLogs = React.useCallback(async (nextFilter: ActivityLogFilter) => {
     setLoading(true)
@@ -186,7 +190,7 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
 
   React.useEffect(() => {
     setPage(1)
-  }, [viewFilter, typeFilter, search])
+  }, [viewFilter, typeFilter, search, pageSize])
 
   function changeViewFilter(nextFilter: string) {
     const normalized = normalizeViewFilter(nextFilter)
@@ -200,12 +204,9 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
     return matchesType && matchesSearch
   })
 
-  const pageSize = 10
   const total = filteredItems.length
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const currentPage = Math.min(page, totalPages)
-  const startIndex = total === 0 ? 0 : (currentPage - 1) * pageSize + 1
-  const endIndex = Math.min(currentPage * pageSize, total)
   const pageItems = filteredItems.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
@@ -213,7 +214,7 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
 
   return (
     <DashboardShell>
-      <div className="flex flex-1 flex-col bg-muted/30">
+      <div className="flex flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-4 py-6 lg:px-6 xl:mt-8">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -274,22 +275,6 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-            <div>
-              {loading
-                ? "正在加载日志..."
-                : total === 0
-                  ? "暂无日志"
-                  : `显示 ${startIndex} 到 ${endIndex}，共 ${total} 条`}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="hidden sm:inline">分页</span>
-              <span>
-                {currentPage} / {totalPages}
-              </span>
-            </div>
-          </div>
-
           {loading ? (
             <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
               正在加载日志...
@@ -298,31 +283,72 @@ export function ActivityLogsPage({ initialFilter }: { initialFilter: string }) {
             <>
               <ActivityLogTable items={pageItems} />
 
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm text-muted-foreground">
-                  {total === 0 ? " " : `每页 ${pageSize} 条`}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="size-8 p-0"
-                    disabled={currentPage <= 1}
-                    onClick={() => setPage((value) => Math.max(1, value - 1))}
-                  >
-                    <IconChevronLeft className="size-4" />
-                    <span className="sr-only">上一页</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="size-8 p-0"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
-                  >
-                    <IconChevronRight className="size-4" />
-                    <span className="sr-only">下一页</span>
-                  </Button>
+              <div className="flex items-center justify-end">
+                <div className="flex w-full items-center gap-8 lg:w-fit">
+                  <div className="hidden items-center gap-2 lg:flex">
+                    <Label htmlFor="logs-rows-per-page" className="text-sm font-medium">
+                      每页行数
+                    </Label>
+                    <Select
+                      value={`${pageSize}`}
+                      onValueChange={(value) => setPageSize(Number(value))}
+                    >
+                      <SelectTrigger size="sm" className="w-20" id="logs-rows-per-page">
+                        <SelectValue placeholder={pageSize} />
+                      </SelectTrigger>
+                      <SelectContent side="top">
+                        {[10, 20, 30, 40, 50].map((value) => (
+                          <SelectItem key={value} value={`${value}`}>
+                            {value}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex w-fit items-center justify-center text-sm font-medium">
+                    第 {currentPage} 页，共 {totalPages} 页
+                  </div>
+                  <div className="ml-auto flex items-center gap-2 lg:ml-0">
+                    <Button
+                      variant="outline"
+                      className="hidden h-8 w-8 p-0 lg:flex"
+                      onClick={() => setPage(1)}
+                      disabled={currentPage <= 1}
+                    >
+                      <span className="sr-only">首页</span>
+                      <IconChevronsLeft className="size-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-8"
+                      disabled={currentPage <= 1}
+                      onClick={() => setPage((value) => Math.max(1, value - 1))}
+                    >
+                      <IconChevronLeft className="size-4" />
+                      <span className="sr-only">上一页</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-8"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+                    >
+                      <IconChevronRight className="size-4" />
+                      <span className="sr-only">下一页</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="hidden size-8 lg:flex"
+                      onClick={() => setPage(totalPages)}
+                      disabled={currentPage >= totalPages}
+                    >
+                      <span className="sr-only">末页</span>
+                      <IconChevronsRight className="size-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </>

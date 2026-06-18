@@ -20,17 +20,17 @@ type Overview struct {
 }
 
 type OverviewCards struct {
-	TotalUsers         int64  `json:"totalUsers"`
-	ActiveUsers        int64  `json:"activeUsers"`
-	TotalApplications  int64  `json:"totalApplications"`
-	ActiveApplications int64  `json:"activeApplications"`
-	ActiveSessions     int64  `json:"activeSessions"`
-	AgentOnline        bool   `json:"agentOnline"`
-	AgentUptimeSeconds int64  `json:"agentUptimeSeconds"`
-	StorageDiskTotal   int64  `json:"storageDiskTotal"`
-	StorageDiskUsed    int64  `json:"storageDiskUsed"`
-	StorageDiskFree    int64  `json:"storageDiskFree"`
-	StorageDiskDrive   string `json:"storageDiskDrive"`
+	TotalUsers           int64  `json:"totalUsers"`
+	ActiveUsers          int64  `json:"activeUsers"`
+	TotalApplications    int64  `json:"totalApplications"`
+	ActiveApplications   int64  `json:"activeApplications"`
+	ActiveSessions       int64  `json:"activeSessions"`
+	AgentOnline          bool   `json:"agentOnline"`
+	ServiceUptimeSeconds int64  `json:"serviceUptimeSeconds"`
+	StorageDiskTotal     int64  `json:"storageDiskTotal"`
+	StorageDiskUsed      int64  `json:"storageDiskUsed"`
+	StorageDiskFree      int64  `json:"storageDiskFree"`
+	StorageDiskDrive     string `json:"storageDiskDrive"`
 }
 
 type AgentMetricPoint struct {
@@ -99,7 +99,7 @@ func (s *Service) GetOverview() (Overview, error) {
 		return Overview{}, fmt.Errorf("统计在线会话失败: %w", err)
 	}
 	overview.Cards.AgentOnline = s.agentConnected()
-	overview.Cards.AgentUptimeSeconds = s.agentUptimeSeconds()
+	overview.Cards.ServiceUptimeSeconds = s.serviceUptimeSeconds()
 
 	var agentStatus models.AgentStatus
 	if err := s.db.First(&agentStatus, "id = ?", models.SingleAgentID).Error; err == nil {

@@ -23,12 +23,21 @@ function assertBrowser() {
 
 export function getAuthToken() {
   assertBrowser()
-  return window.localStorage.getItem(tokenKey)
+  try {
+    return window.localStorage.getItem(tokenKey)
+  } catch {
+    return null
+  }
 }
 
 export function getAuthUser(): AdminUser | null {
   assertBrowser()
-  const raw = window.localStorage.getItem(userKey)
+  let raw: string | null = null
+  try {
+    raw = window.localStorage.getItem(userKey)
+  } catch {
+    return null
+  }
   if (!raw) {
     return null
   }
@@ -46,14 +55,22 @@ export function setAuth(token: string, user: AdminUser) {
   if (!token) {
     throw new Error("token 不能为空")
   }
-  window.localStorage.setItem(tokenKey, token)
-  window.localStorage.setItem(userKey, JSON.stringify(user))
+  try {
+    window.localStorage.setItem(tokenKey, token)
+    window.localStorage.setItem(userKey, JSON.stringify(user))
+  } catch (error) {
+    throw new Error(`保存登录态失败: ${(error as Error).message}`)
+  }
 }
 
 export function clearAuth() {
   assertBrowser()
-  window.localStorage.removeItem(tokenKey)
-  window.localStorage.removeItem(userKey)
+  try {
+    window.localStorage.removeItem(tokenKey)
+    window.localStorage.removeItem(userKey)
+  } catch {
+    return
+  }
 }
 
 export function isAuthenticated() {

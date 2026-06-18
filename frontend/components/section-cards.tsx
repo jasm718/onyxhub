@@ -1,133 +1,112 @@
 import {
-  IconAlertCircle,
   IconApps,
-  IconArrowUpRight,
-  IconCheck,
   IconClock,
-  IconTrendingUp,
+  IconPlugConnected,
+  IconPlugConnectedX,
   IconUsers,
 } from "@tabler/icons-react"
 
-import { Badge } from "@/components/ui/badge"
 import {
   Card,
-  CardAction,
+  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
 import type { Overview } from "@/lib/api"
+import { formatDuration, formatRelativeTime } from "@/lib/format"
 
-function formatAgentUptime(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds <= 0) {
-    return "0 分钟"
+function agentReportText(agentStatus: Overview["agentStatus"]) {
+  if (!agentStatus?.reportedAt) {
+    return "尚未收到上报"
   }
-
-  const minutes = Math.max(1, Math.floor(seconds / 60))
-  if (minutes < 60) {
-    return `${minutes} 分钟`
-  }
-
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) {
-    return `${hours} 小时`
-  }
-
-  const days = Math.floor(hours / 24)
-  const restHours = hours % 24
-  return restHours > 0 ? `${days} 天 ${restHours} 小时` : `${days} 天`
+  return `最后上报 ${formatRelativeTime(agentStatus.reportedAt)}`
 }
 
-export function SectionCards({ cards }: { cards: Overview["cards"] }) {
+export function SectionCards({
+  cards,
+  agentStatus,
+}: {
+  cards: Overview["cards"]
+  agentStatus: Overview["agentStatus"]
+}) {
+  const disabledApplications = Math.max(
+    0,
+    cards.totalApplications - cards.activeApplications
+  )
+  const disabledUsers = Math.max(0, cards.totalUsers - cards.activeUsers)
+
   return (
-    <div className="grid shrink-0 grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-3">
-      <Card className="@container/card border border-border/50 bg-card/50 ring-0">
-        <CardHeader>
-          <CardDescription className="flex items-center gap-2">
-            <IconApps className="size-4 text-primary" />
-            已发布应用
-          </CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+    <div className="grid shrink-0 grid-cols-1 gap-4 px-4 sm:grid-cols-2 lg:grid-cols-4 lg:px-6">
+      <Card className="min-h-[180px] gap-0 border border-border/50 bg-card/50 ring-0">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-2">
+          <CardDescription>远程应用</CardDescription>
+          <IconApps className="size-4 text-primary" />
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col px-6 pt-0 pb-0">
+          <div className="text-3xl font-semibold tabular-nums">
             {cards.totalApplications}
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="border-primary/30 text-primary">
-              <IconTrendingUp className="size-3" />
-              {cards.activeApplications} 启用
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            应用发布状态 <IconCheck className="size-4 text-primary" />
           </div>
-          <div className="text-muted-foreground">
-            当前启用 {cards.activeApplications} 个应用
+        </CardContent>
+        <CardFooter className="mt-auto items-start bg-card px-6 py-3 text-xs text-muted-foreground">
+          <div className="flex gap-1.5 leading-relaxed">
+            <span>启用{cards.activeApplications}</span>
+            <span>·</span>
+            <span>禁用{disabledApplications}</span>
           </div>
         </CardFooter>
       </Card>
 
-      <Card className="@container/card border border-border/50 bg-card/50 ring-0">
-        <CardHeader>
-          <CardDescription className="flex items-center gap-2">
-            <IconUsers className="size-4 text-chart-2" />
-            活跃用户
-          </CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+      <Card className="min-h-[180px] gap-0 border border-border/50 bg-card/50 ring-0">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-2">
+          <CardDescription>活跃用户</CardDescription>
+          <IconUsers className="size-4 text-chart-2" />
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col px-6 pt-0 pb-0">
+          <div className="text-3xl font-semibold tabular-nums">
             {cards.activeUsers}
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="border-chart-2/30 text-chart-2">
-              <IconTrendingUp className="size-3" />
-              共 {cards.totalUsers}
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            启用用户统计 <IconArrowUpRight className="size-4 text-chart-2" />
           </div>
-          <div className="text-muted-foreground">
-            全部用户 {cards.totalUsers} 人
+        </CardContent>
+        <CardFooter className="mt-auto items-start bg-card px-6 py-3 text-xs text-muted-foreground">
+          <div className="flex gap-1.5 leading-relaxed">
+            <span>启用{cards.activeUsers}</span>
+            <span>·</span>
+            <span>禁用{disabledUsers}</span>
           </div>
         </CardFooter>
       </Card>
 
-      <Card className="@container/card border border-border/50 bg-card/50 ring-0">
-        <CardHeader>
-          <CardDescription className="flex items-center gap-2">
-            <IconClock className="size-4 text-chart-4" />
-            系统运行时间
-          </CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {cards.agentOnline
-              ? formatAgentUptime(cards.agentUptimeSeconds)
-              : "离线"}
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="border-chart-4/30 text-chart-4">
-              {cards.agentOnline ? (
-                <IconTrendingUp className="size-3" />
-              ) : (
-                <IconAlertCircle className="size-3" />
-              )}
-              Agent
-            </Badge>
-          </CardAction>
+      <Card className="min-h-[180px] gap-0 border border-border/50 bg-card/50 ring-0">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-2">
+          <CardDescription>系统运行时间</CardDescription>
+          <IconClock className="size-4 text-chart-4" />
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            主机控制服务 {cards.agentOnline ? "正常" : "未连接"}{" "}
-            {cards.agentOnline ? (
-              <IconCheck className="size-4 text-primary" />
-            ) : (
-              <IconAlertCircle className="size-4 text-chart-4" />
-            )}
+        <CardContent className="flex flex-1 flex-col px-6 pt-0 pb-0">
+          <div className="text-3xl font-semibold tabular-nums">
+            {formatDuration(cards.serviceUptimeSeconds)}
           </div>
-          <div className="text-muted-foreground">
-            从首次收到 Agent 心跳开始统计
+        </CardContent>
+        <CardFooter className="mt-auto items-start bg-card px-6 py-3 text-xs text-muted-foreground">
+          <div className="leading-relaxed">按后端服务启动时间统计</div>
+        </CardFooter>
+      </Card>
+
+      <Card className="min-h-[180px] gap-0 border border-border/50 bg-card/50 ring-0">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-2">
+          <CardDescription>代理服务状态</CardDescription>
+          {cards.agentOnline ? (
+            <IconPlugConnected className="size-4 text-chart-3" />
+          ) : (
+            <IconPlugConnectedX className="size-4 text-destructive" />
+          )}
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col px-6 pt-0 pb-0">
+          <div className="text-3xl font-semibold tabular-nums">
+            {cards.agentOnline ? "在线" : "离线"}
           </div>
+        </CardContent>
+        <CardFooter className="mt-auto items-start bg-card px-6 py-3 text-xs text-muted-foreground">
+          <div className="leading-relaxed">{agentReportText(agentStatus)}</div>
         </CardFooter>
       </Card>
     </div>

@@ -58,7 +58,10 @@ export default function Page() {
               </div>
             ) : (
               <div className="flex min-h-0 flex-1 flex-col gap-3 md:gap-4 md:overflow-hidden">
-                <SectionCards cards={overview.cards} />
+                <SectionCards
+                  cards={overview.cards}
+                  agentStatus={overview.agentStatus}
+                />
                 <AgentMetricCharts metrics={overview.agentMetrics} cards={overview.cards} />
                 <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 px-4 md:overflow-hidden lg:grid-cols-2 lg:px-6 [&>*]:min-h-0">
                   <ActiveConnectionTable data={overview.activeConnections} />
