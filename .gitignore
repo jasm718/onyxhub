@@ -38,3 +38,8 @@ backend/tmp/
 
 agent/build/dist/
 agent/build/tmp/
+
+# client local build outputs
+client/build/
+client/out/
+client/dist/
