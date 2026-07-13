@@ -29,6 +29,7 @@ func NewRouter(svc *service.Service, jwtSecret string, agent *agentws.Manager, c
 
 	router.POST("/api/admin/auth/login", server.adminLogin)
 	router.POST("/api/client/auth/login", server.clientLogin)
+	router.GET("/api/client/ping", server.clientPing)
 	router.GET("/ws/agent", agent.Handle)
 
 	admin := router.Group("/api/admin")
@@ -121,6 +122,12 @@ func (s *Server) clientLogin(c *gin.Context) {
 		return
 	}
 	ok(c, result)
+}
+
+func (s *Server) clientPing(c *gin.Context) {
+	ok(c, gin.H{
+		"status": "ok",
+	})
 }
 
 func (s *Server) listUsers(c *gin.Context) {
