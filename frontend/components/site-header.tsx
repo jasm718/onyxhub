@@ -13,10 +13,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard/activity-logs': '活动日志',
   '/dashboard/applications': '应用管理',
   '/dashboard/users': '用户管理',
-  '/dashboard/settings/general': '通用设置',
   '/dashboard/settings/storage': '存储设置',
-  '/dashboard/settings/security': '安全设置',
-  '/dashboard/settings/license': '授权',
 }
 
 export function SiteHeader() {

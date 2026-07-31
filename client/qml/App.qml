@@ -19,7 +19,11 @@ FluWindow {
     }
     appBar: FluAppBar {
         title: window.title
+        icon: "qrc:/OnyxHub/Client/assets/onyxhub-logo-256.png"
+        iconSize: 20
         showDark: true
+        color: "#F6F6F6"
+        textColor: "#333333"
         showMaximize: false
         stayTopClickListener: function() {
             settingsDialog.open()

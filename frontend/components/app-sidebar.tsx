@@ -7,10 +7,7 @@ import {
   IconApps,
   IconChartBar,
   IconHistory,
-  IconKey,
   IconServer,
-  IconSettings,
-  IconShield,
   IconUsers,
 } from "@tabler/icons-react"
 
@@ -58,24 +55,9 @@ const data = {
   ],
   navSettings: [
     {
-      title: "通用设置",
-      url: "/dashboard/settings/general",
-      icon: IconSettings,
-    },
-    {
       title: "存储设置",
       url: "/dashboard/settings/storage",
       icon: IconServer,
-    },
-    {
-      title: "安全设置",
-      url: "/dashboard/settings/security",
-      icon: IconShield,
-    },
-    {
-      title: "授权",
-      url: "/dashboard/settings/license",
-      icon: IconKey,
     },
   ],
 }

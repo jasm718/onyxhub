@@ -234,12 +234,19 @@ function StorageChartCard({ cards }: { cards: Overview["cards"] }) {
           <IconDatabase className="size-4 text-primary" />
           硬盘使用情况
         </CardDescription>
-        <CardTitle className="text-2xl font-semibold tabular-nums">
-          {hasStorage ? formatBytes(cards.storageDiskTotal) : "-"}
+        <CardTitle className="flex items-baseline gap-1 tabular-nums">
+          {hasStorage ? (
+            <>
+              <span className="text-2xl font-semibold">{storageFreeUsage}%</span>
+              <span className="text-sm font-normal text-muted-foreground">剩余</span>
+            </>
+          ) : (
+            "-"
+          )}
         </CardTitle>
         <CardAction>
           <Badge variant="outline" className="border-primary/30 text-primary">
-            {hasStorage ? `${storageFreeUsage}% 未使用` : "未上报"}
+            {hasStorage ? `共${formatBytes(cards.storageDiskTotal).replace(/\s+/g, "")}` : "未上报"}
           </Badge>
         </CardAction>
       </CardHeader>
