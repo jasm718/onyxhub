@@ -39,6 +39,7 @@ type sessionSnapshotItem struct {
 	WindowsSessionID *int      `json:"windowsSessionId"`
 	WindowsUsername  string    `json:"windowsUsername"`
 	ConnectedAt      time.Time `json:"connectedAt"`
+	State            string    `json:"state"`
 }
 
 func (s *Service) HandleAgentMessage(raw []byte) error {
@@ -166,6 +167,7 @@ func (s *Service) handleSessionSnapshot(raw []byte) error {
 	}
 
 	present := make(map[string]bool)
+	hasUnknownState := false
 	return s.withTx(func(tx *gorm.DB) error {
 		for _, item := range msg.Sessions {
 			remoteSessionID, user, ok, err := s.validSessionSnapshotItem(tx, agentStatus.Hostname, item)
@@ -175,7 +177,34 @@ func (s *Service) handleSessionSnapshot(raw []byte) error {
 			if !ok {
 				continue
 			}
-			present[remoteSessionID] = true
+			state := strings.ToLower(strings.TrimSpace(item.State))
+			if state == "active" {
+				present[remoteSessionID] = true
+			} else if state == "disconnected" {
+				// Disconnected sessions are not online and must not block user deletion.
+				var session models.Session
+				sessionErr := tx.First(&session, "remote_session_id = ?", remoteSessionID).Error
+				if sessionErr != nil && !isNotFound(sessionErr) {
+					return fmt.Errorf("查询断开 session 失败: %w", sessionErr)
+				}
+				if sessionErr == nil && session.Status == models.SessionStatusActive {
+					if err := tx.Model(&session).Updates(map[string]any{
+						"status":          models.SessionStatusClosed,
+						"disconnected_at": msg.ReportedAt,
+						"last_seen_at":    msg.ReportedAt,
+					}).Error; err != nil {
+						return fmt.Errorf("关闭断开 session 失败: %w", err)
+					}
+					if err := s.logActivity(tx, models.ActivitySessionClosed, models.ActorTypeSystem, "", models.TargetTypeSession, session.ID, "Windows 用户 "+session.WindowsUsername+" 已断开"); err != nil {
+						return err
+					}
+				}
+				continue
+			} else {
+				// Unknown state is not evidence that a live session disconnected.
+				hasUnknownState = true
+				continue
+			}
 
 			var session models.Session
 			err = tx.First(&session, "remote_session_id = ?", remoteSessionID).Error
@@ -209,6 +238,10 @@ func (s *Service) handleSessionSnapshot(raw []byte) error {
 			if err := tx.Model(&session).Updates(updates).Error; err != nil {
 				return fmt.Errorf("更新 session 失败: %w", err)
 			}
+		}
+
+		if hasUnknownState {
+			return nil
 		}
 
 		var activeSessions []models.Session

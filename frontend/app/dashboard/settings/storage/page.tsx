@@ -159,6 +159,7 @@ export default function StorageSettingsPage() {
                           setForm({ ...form, disconnectedSessionLogoffMinutes: event.target.value })
                         }
                       />
+                      <p className="text-xs text-muted-foreground">填写 0 表示关闭断开会话自动清理。</p>
                     </div>
                   </div>
                   <div className="flex justify-end gap-2 pt-2">

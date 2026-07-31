@@ -65,8 +65,11 @@ func configureInstall(serverAddress string, heartbeatSeconds int, logger *applog
 	if err := configureTerminalServicesPolicy(); err != nil {
 		return err
 	}
+	if err := configureEdgePolicy(); err != nil {
+		return err
+	}
 	if logger != nil {
-		logger.Info("configure_policy", "远程应用策略配置完成")
+		logger.Info("configure_policy", "远程应用和 Edge 首次运行策略配置完成")
 	}
 	return nil
 }
@@ -180,6 +183,23 @@ func configureTerminalServicesPolicy() error {
 	return nil
 }
 
+func configureEdgePolicy() error {
+	key, _, err := registry.CreateKey(
+		registry.LOCAL_MACHINE,
+		`SOFTWARE\Policies\Microsoft\Edge`,
+		registry.SET_VALUE,
+	)
+	if err != nil {
+		return fmt.Errorf("打开 Edge 策略注册表失败: %w", err)
+	}
+	defer key.Close()
+
+	if err := key.SetDWordValue("HideFirstRunExperience", 1); err != nil {
+		return fmt.Errorf("写入 Edge 首次运行策略失败: %w", err)
+	}
+	return nil
+}
+
 func cleanupInstall(logger *applog.Logger) error {
 	if logger != nil {
 		logger.Info("cleanup_start", "开始卸载清理")
@@ -188,6 +208,9 @@ func cleanupInstall(logger *applog.Logger) error {
 		return err
 	}
 	if err := deleteRegistryValues(registry.LOCAL_MACHINE, `SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services`, "fAllowUnlistedRemotePrograms", "MaxDisconnectionTime", "fResetBroken"); err != nil {
+		return err
+	}
+	if err := deleteRegistryValues(registry.LOCAL_MACHINE, `SOFTWARE\Policies\Microsoft\Edge`, "HideFirstRunExperience"); err != nil {
 		return err
 	}
 	if err := deleteRegistryTree(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion\Terminal Server\TSAppAllowList\Applications`); err != nil {

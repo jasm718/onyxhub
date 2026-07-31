@@ -48,6 +48,9 @@ func Open(cfg config.Config) (*gorm.DB, error) {
 	if err := dropAgentNetworkColumns(database); err != nil {
 		return nil, err
 	}
+	if err := dropApplicationRemoteAppState(database); err != nil {
+		return nil, err
+	}
 	if err := backfillActivityLogs(database); err != nil {
 		return nil, err
 	}
@@ -66,6 +69,13 @@ func Open(cfg config.Config) (*gorm.DB, error) {
 	}
 
 	return database, nil
+}
+
+func dropApplicationRemoteAppState(database *gorm.DB) error {
+	if err := dropColumnsIfExist(database, "applications", "remote_app_registered", "remote_app_alias"); err != nil {
+		return fmt.Errorf("删除应用 RemoteApp 状态字段失败: %w", err)
+	}
+	return nil
 }
 
 type tableColumn struct {
@@ -151,18 +161,18 @@ func migrateAgentIssuesToActivityLogs(database *gorm.DB) error {
 			continue
 		}
 		logItem := models.ActivityLog{
-			ID:          issue.ID,
-			Category:    models.LogCategoryAlert,
-			Level:       issue.Level,
-			Source:      models.LogSourceAgent,
-			Type:        issue.Type,
-			ActorType:   models.ActorTypeSystem,
-			TargetType:  models.TargetTypeSystem,
-			TargetID:    models.SingleAgentID,
-			Message:     issue.Message,
-			Detail:      "",
-			CreatedAt:   issue.CreatedAt,
-			ReadAt:      issue.ReadAt,
+			ID:         issue.ID,
+			Category:   models.LogCategoryAlert,
+			Level:      issue.Level,
+			Source:     models.LogSourceAgent,
+			Type:       issue.Type,
+			ActorType:  models.ActorTypeSystem,
+			TargetType: models.TargetTypeSystem,
+			TargetID:   models.SingleAgentID,
+			Message:    issue.Message,
+			Detail:     "",
+			CreatedAt:  issue.CreatedAt,
+			ReadAt:     issue.ReadAt,
 		}
 		if err := database.Create(&logItem).Error; err != nil {
 			return fmt.Errorf("迁移异常日志失败: %w", err)

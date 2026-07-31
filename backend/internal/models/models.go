@@ -68,6 +68,7 @@ type User struct {
 	DisplayName     string     `gorm:"size:128;not null" json:"displayName"`
 	WindowsUsername *string    `gorm:"size:128;uniqueIndex" json:"windowsUsername,omitempty"`
 	PasswordHash    string     `gorm:"size:128;not null" json:"-"`
+	RDPPassword     string     `gorm:"column:rdp_password;type:text" json:"-"`
 	Role            string     `gorm:"size:32;not null;index" json:"role"`
 	Status          string     `gorm:"size:32;not null;index" json:"status"`
 	LastLoginAt     *time.Time `json:"lastLoginAt,omitempty"`
@@ -83,17 +84,15 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 }
 
 type Application struct {
-	ID                  string    `gorm:"primaryKey;size:64" json:"id"`
-	Name                string    `gorm:"size:128;not null" json:"name"`
-	Path                string    `gorm:"size:512;not null;uniqueIndex" json:"path"`
-	Icon                string    `gorm:"type:text;not null;default:iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABsElEQVR4AXyRsUvDUBjE30udXLSpFqQOin0UHbqLCG4Oin+GtU0dXJ0KDupSB2mCODg4C0JRcHIT1LGLbSMqCqLY106KYvP5LpCS1KaBI9e733dDqrGQZ7RkJ3XLPoPgQzD2f6BwOaBb9WKb0wW12yUIHhlTXfdQYCBWqub1+Pgnc9izzImpZj51DsEj01UHxj/iDkSt2rJu1iukaWnneyAuDbHnh+CRoQMDFjfI3QFOvMyIZ2RWrLY2JlsoegkdGLDujYLcAfVm0khe4T28X1/Au5e8zmPBdAbwY+TgcUyLsG3dtE9iVjWBDIJHpkX4FhhkngIDH5mJV/XBZonolkh7iZVqu5DyN5zTqcwl58F4x3gHBhBATUPs8LYzTZynidGXzIlEIyuO0XWr5wCgxnrqjpFzDd9PoQP9jvxdZyBq2XP+op/3s+4AaWyFEx3qln00ZD5Fw47RgQGLG3DuQHNNlNWHmmFElQj7eYuZ9U2U0kgVIHhk6MCAxQ1ydwAGUkVRvicHHWIJ9b8/RM37JQgeGTqZE0WwngIDbljgv01DGJrDFzk5eQgeGVMd63r+AAAA//8kagYzAAAABklEQVQDAFIO2elU1KXHAAAAAElFTkSuQmCC" json:"icon"`
-	Arguments           string    `gorm:"size:512" json:"arguments"`
-	WorkingDir          string    `gorm:"size:512" json:"workingDir"`
-	Status              string    `gorm:"size:32;not null;index" json:"status"`
-	RemoteAppRegistered bool      `gorm:"not null;default:false" json:"remoteAppRegistered"`
-	RemoteAppAlias      string    `gorm:"size:128;index" json:"remoteAppAlias"`
-	CreatedAt           time.Time `json:"createdAt"`
-	UpdatedAt           time.Time `json:"updatedAt"`
+	ID         string    `gorm:"primaryKey;size:64" json:"id"`
+	Name       string    `gorm:"size:128;not null" json:"name"`
+	Path       string    `gorm:"size:512;not null;uniqueIndex" json:"path"`
+	Icon       string    `gorm:"type:text;not null;default:iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABsElEQVR4AXyRsUvDUBjE30udXLSpFqQOin0UHbqLCG4Oin+GtU0dXJ0KDupSB2mCODg4C0JRcHIT1LGLbSMqCqLY106KYvP5LpCS1KaBI9e733dDqrGQZ7RkJ3XLPoPgQzD2f6BwOaBb9WKb0wW12yUIHhlTXfdQYCBWqub1+Pgnc9izzImpZj51DsEj01UHxj/iDkSt2rJu1iukaWnneyAuDbHnh+CRoQMDFjfI3QFOvMyIZ2RWrLY2JlsoegkdGLDujYLcAfVm0khe4T28X1/Au5e8zmPBdAbwY+TgcUyLsG3dtE9iVjWBDIJHpkX4FhhkngIDH5mJV/XBZonolkh7iZVqu5DyN5zTqcwl58F4x3gHBhBATUPs8LYzTZynidGXzIlEIyuO0XWr5wCgxnrqjpFzDd9PoQP9jvxdZyBq2XP+op/3s+4AaWyFEx3qln00ZD5Fw47RgQGLG3DuQHNNlNWHmmFElQj7eYuZ9U2U0kgVIHhk6MCAxQ1ydwAGUkVRvicHHWIJ9b8/RM37JQgeGTqZE0WwngIDbljgv01DGJrDFzk5eQgeGVMd63r+AAAA//8kagYzAAAABklEQVQDAFIO2elU1KXHAAAAAElFTkSuQmCC" json:"icon"`
+	Arguments  string    `gorm:"size:512" json:"arguments"`
+	WorkingDir string    `gorm:"size:512" json:"workingDir"`
+	Status     string    `gorm:"size:32;not null;index" json:"status"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 func (a *Application) BeforeCreate(tx *gorm.DB) error {

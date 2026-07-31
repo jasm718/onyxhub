@@ -41,6 +41,9 @@ Remove-ItemProperty -Path $explorer -Name "NoViewOnDrive" -ErrorAction SilentlyC
 $policy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services"
 Remove-ItemProperty -Path $policy -Name "fAllowUnlistedRemotePrograms" -ErrorAction SilentlyContinue
 
+$edgePolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+Remove-ItemProperty -Path $edgePolicy -Name "HideFirstRunExperience" -ErrorAction SilentlyContinue
+
 if (-not $KeepInstallDir -and (Test-Path $InstallDir)) {
   Remove-Item -LiteralPath $InstallDir -Recurse -Force
 }

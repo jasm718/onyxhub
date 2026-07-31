@@ -34,10 +34,6 @@ QVariant ApplicationModel::data(const QModelIndex &index, int role) const {
         return item.workingDir;
     case StatusRole:
         return item.status;
-    case RemoteAppRegisteredRole:
-        return item.remoteAppRegistered;
-    case RemoteAppAliasRole:
-        return item.remoteAppAlias;
     default:
         return {};
     }
@@ -53,8 +49,6 @@ QHash<int, QByteArray> ApplicationModel::roleNames() const {
         {ArgumentsRole, "arguments"},
         {WorkingDirRole, "workingDir"},
         {StatusRole, "status"},
-        {RemoteAppRegisteredRole, "remoteAppRegistered"},
-        {RemoteAppAliasRole, "remoteAppAlias"},
     };
 }
 
@@ -77,8 +71,6 @@ void ApplicationModel::setApplications(const QJsonArray &applications) {
         item.arguments = object.value(QStringLiteral("arguments")).toString();
         item.workingDir = object.value(QStringLiteral("workingDir")).toString();
         item.status = object.value(QStringLiteral("status")).toString();
-        item.remoteAppRegistered = object.value(QStringLiteral("remoteAppRegistered")).toBool();
-        item.remoteAppAlias = object.value(QStringLiteral("remoteAppAlias")).toString();
         m_items.push_back(item);
     }
 

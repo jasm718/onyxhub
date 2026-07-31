@@ -7,7 +7,7 @@ Item {
     id: root
 
     function submit() {
-        ClientApp.login(usernameField.text, passwordField.text)
+        ClientApp.login(usernameField.text, passwordField.text, rememberPasswordCheck.checked)
     }
 
     Image {
@@ -59,6 +59,7 @@ Item {
 
             FluTextBox {
                 id: usernameField
+                text: ClientApp.rememberedUsername
                 placeholderText: "用户名"
                 Layout.fillWidth: true
                 Layout.topMargin: 8
@@ -67,9 +68,17 @@ Item {
 
             FluPasswordBox {
                 id: passwordField
+                text: ClientApp.rememberedPassword
                 placeholderText: "密码"
                 Layout.fillWidth: true
                 onCommit: root.submit()
+            }
+
+            FluCheckBox {
+                id: rememberPasswordCheck
+                text: "记住密码"
+                checked: ClientApp.rememberPassword
+                Layout.alignment: Qt.AlignLeft
             }
 
             Item {
@@ -84,13 +93,6 @@ Item {
                 onClicked: root.submit()
             }
 
-            FluText {
-                text: ClientApp.errorMessage
-                visible: text.length > 0
-                textColor: "#c42b1c"
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
-            }
         }
     }
 }

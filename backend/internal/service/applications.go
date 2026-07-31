@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"onyxhub/backend/internal/models"
@@ -12,24 +11,20 @@ import (
 )
 
 type CreateApplicationInput struct {
-	Name                string `json:"name"`
-	Path                string `json:"path"`
-	Arguments           string `json:"arguments"`
-	WorkingDir          string `json:"workingDir"`
-	Status              string `json:"status"`
-	RemoteAppRegistered bool   `json:"remoteAppRegistered"`
-	RemoteAppAlias      string `json:"remoteAppAlias"`
+	Name       string `json:"name"`
+	Path       string `json:"path"`
+	Arguments  string `json:"arguments"`
+	WorkingDir string `json:"workingDir"`
+	Status     string `json:"status"`
 }
 
 type UpdateApplicationInput struct {
-	ID                  string  `json:"id"`
-	Name                *string `json:"name"`
-	Path                *string `json:"path"`
-	Arguments           *string `json:"arguments"`
-	WorkingDir          *string `json:"workingDir"`
-	Status              *string `json:"status"`
-	RemoteAppRegistered *bool   `json:"remoteAppRegistered"`
-	RemoteAppAlias      *string `json:"remoteAppAlias"`
+	ID         string  `json:"id"`
+	Name       *string `json:"name"`
+	Path       *string `json:"path"`
+	Arguments  *string `json:"arguments"`
+	WorkingDir *string `json:"workingDir"`
+	Status     *string `json:"status"`
 }
 
 type InstalledApplication struct {
@@ -111,26 +106,16 @@ func (s *Service) CreateApplication(actorUserID string, input CreateApplicationI
 	}
 
 	application := models.Application{
-		ID:                  models.NewID("app"),
-		Name:                name,
-		Path:                path,
-		Icon:                models.DefaultApplicationIcon,
-		Arguments:           trim(input.Arguments),
-		WorkingDir:          trim(input.WorkingDir),
-		Status:              status,
-		RemoteAppRegistered: input.RemoteAppRegistered,
-		RemoteAppAlias:      trim(input.RemoteAppAlias),
+		ID:         models.NewID("app"),
+		Name:       name,
+		Path:       path,
+		Icon:       models.DefaultApplicationIcon,
+		Arguments:  trim(input.Arguments),
+		WorkingDir: trim(input.WorkingDir),
+		Status:     status,
 	}
-	if application.RemoteAppRegistered {
-		if application.RemoteAppAlias == "" {
-			application.RemoteAppAlias = application.ID
-		}
-		if err := validateRemoteAppAlias(application.RemoteAppAlias); err != nil {
-			return models.Application{}, err
-		}
-		if _, err := s.sendAgentCommandWithTimeout("register_remote_app", remoteAppPayload(application), 30*time.Second); err != nil {
-			return models.Application{}, fmt.Errorf("注册 RemoteApp 失败: %w", err)
-		}
+	if _, err := s.sendAgentCommandWithTimeout("register_remote_app", remoteAppPayload(application), 30*time.Second); err != nil {
+		return models.Application{}, fmt.Errorf("注册 RemoteApp 失败: %w", err)
 	}
 
 	if err := s.withTx(func(tx *gorm.DB) error {
@@ -147,13 +132,9 @@ func (s *Service) CreateApplication(actorUserID string, input CreateApplicationI
 		}
 		return s.logActivity(tx, models.ActivityApplicationCreated, models.ActorTypeAdmin, actorUserID, models.TargetTypeApplication, application.ID, "新增应用 "+application.Name)
 	}); err != nil {
-		if application.RemoteAppRegistered {
-			_, cleanupErr := s.sendAgentCommandWithTimeout("unregister_remote_app", map[string]any{
-				"alias": application.RemoteAppAlias,
-			}, 30*time.Second)
-			if cleanupErr != nil {
-				return models.Application{}, fmt.Errorf("%w；回滚 RemoteApp 注册失败: %v", err, cleanupErr)
-			}
+		_, cleanupErr := s.sendAgentCommandWithTimeout("unregister_remote_app", map[string]any{"alias": application.ID}, 30*time.Second)
+		if cleanupErr != nil {
+			return models.Application{}, fmt.Errorf("%w；回滚 RemoteApp 注册失败: %v", err, cleanupErr)
 		}
 		return models.Application{}, err
 	}
@@ -180,8 +161,6 @@ func (s *Service) UpdateApplication(actorUserID string, input UpdateApplicationI
 	nextArguments := application.Arguments
 	nextWorkingDir := application.WorkingDir
 	nextStatus := application.Status
-	nextRemoteAppRegistered := application.RemoteAppRegistered
-	nextRemoteAppAlias := application.RemoteAppAlias
 
 	if input.Name != nil {
 		nextName = trim(*input.Name)
@@ -207,12 +186,6 @@ func (s *Service) UpdateApplication(actorUserID string, input UpdateApplicationI
 			return models.Application{}, errors.New("状态无效")
 		}
 	}
-	if input.RemoteAppRegistered != nil {
-		nextRemoteAppRegistered = *input.RemoteAppRegistered
-	}
-	if input.RemoteAppAlias != nil {
-		nextRemoteAppAlias = trim(*input.RemoteAppAlias)
-	}
 
 	exists, err := s.applicationPathExists(nextPath, application.ID)
 	if err != nil {
@@ -223,36 +196,23 @@ func (s *Service) UpdateApplication(actorUserID string, input UpdateApplicationI
 	}
 
 	nextApplication := models.Application{
-		ID:                  application.ID,
-		Name:                nextName,
-		Path:                nextPath,
-		Arguments:           nextArguments,
-		WorkingDir:          nextWorkingDir,
-		Status:              nextStatus,
-		RemoteAppRegistered: nextRemoteAppRegistered,
-		RemoteAppAlias:      nextRemoteAppAlias,
+		ID:         application.ID,
+		Name:       nextName,
+		Path:       nextPath,
+		Arguments:  nextArguments,
+		WorkingDir: nextWorkingDir,
+		Status:     nextStatus,
 	}
-	if nextApplication.RemoteAppRegistered {
-		if nextApplication.RemoteAppAlias == "" {
-			nextApplication.RemoteAppAlias = application.ID
-		}
-		if err := validateRemoteAppAlias(nextApplication.RemoteAppAlias); err != nil {
-			return models.Application{}, err
-		}
-	}
-
-	if err := s.applyRemoteAppUpdate(application, nextApplication); err != nil {
-		return models.Application{}, err
+	if _, err := s.sendAgentCommandWithTimeout("register_remote_app", remoteAppPayload(nextApplication), 30*time.Second); err != nil {
+		return models.Application{}, fmt.Errorf("更新 RemoteApp 注册失败: %w", err)
 	}
 
 	updates := map[string]any{
-		"name":                  nextApplication.Name,
-		"path":                  nextApplication.Path,
-		"arguments":             nextApplication.Arguments,
-		"working_dir":           nextApplication.WorkingDir,
-		"status":                nextApplication.Status,
-		"remote_app_registered": nextApplication.RemoteAppRegistered,
-		"remote_app_alias":      nextApplication.RemoteAppAlias,
+		"name":        nextApplication.Name,
+		"path":        nextApplication.Path,
+		"arguments":   nextApplication.Arguments,
+		"working_dir": nextApplication.WorkingDir,
+		"status":      nextApplication.Status,
 	}
 
 	if err := s.withTx(func(tx *gorm.DB) error {
@@ -264,9 +224,6 @@ func (s *Service) UpdateApplication(actorUserID string, input UpdateApplicationI
 		}
 		return s.logActivity(tx, models.ActivityApplicationUpdated, models.ActorTypeAdmin, actorUserID, models.TargetTypeApplication, application.ID, "修改应用 "+application.Name)
 	}); err != nil {
-		if rollbackErr := s.applyRemoteAppUpdate(nextApplication, application); rollbackErr != nil {
-			return models.Application{}, fmt.Errorf("%w；回滚 RemoteApp 更新失败: %v", err, rollbackErr)
-		}
 		return models.Application{}, err
 	}
 
@@ -287,12 +244,8 @@ func (s *Service) DeleteApplication(actorUserID string, id string) error {
 		return fmt.Errorf("查询应用失败: %w", err)
 	}
 
-	if application.RemoteAppRegistered {
-		if _, err := s.sendAgentCommandWithTimeout("unregister_remote_app", map[string]any{
-			"alias": application.RemoteAppAlias,
-		}, 30*time.Second); err != nil {
-			return fmt.Errorf("取消注册 RemoteApp 失败: %w", err)
-		}
+	if _, err := s.sendAgentCommandWithTimeout("unregister_remote_app", map[string]any{"alias": application.ID}, 30*time.Second); err != nil {
+		return fmt.Errorf("取消注册 RemoteApp 失败: %w", err)
 	}
 
 	return s.withTx(func(tx *gorm.DB) error {
@@ -345,65 +298,12 @@ func (s *Service) SetApplicationStatus(actorUserID string, id string, status str
 	return application, nil
 }
 
-func validateRemoteAppAlias(alias string) error {
-	alias = trim(alias)
-	if alias == "" {
-		return errors.New("RemoteApp alias 不能为空")
-	}
-	for _, r := range alias {
-		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-' {
-			continue
-		}
-		return errors.New("RemoteApp alias 只能包含字母、数字、下划线或短横线")
-	}
-	return nil
-}
-
 func remoteAppPayload(application models.Application) map[string]any {
 	return map[string]any{
-		"alias":      application.RemoteAppAlias,
+		"alias":      application.ID,
 		"name":       application.Name,
 		"path":       application.Path,
 		"arguments":  application.Arguments,
 		"workingDir": application.WorkingDir,
 	}
-}
-
-func (s *Service) applyRemoteAppUpdate(current models.Application, next models.Application) error {
-	if !current.RemoteAppRegistered && !next.RemoteAppRegistered {
-		return nil
-	}
-
-	if current.RemoteAppRegistered && !next.RemoteAppRegistered {
-		if _, err := s.sendAgentCommandWithTimeout("unregister_remote_app", map[string]any{
-			"alias": current.RemoteAppAlias,
-		}, 30*time.Second); err != nil {
-			return fmt.Errorf("取消注册 RemoteApp 失败: %w", err)
-		}
-		return nil
-	}
-
-	if !current.RemoteAppRegistered && next.RemoteAppRegistered {
-		if _, err := s.sendAgentCommandWithTimeout("register_remote_app", remoteAppPayload(next), 30*time.Second); err != nil {
-			return fmt.Errorf("注册 RemoteApp 失败: %w", err)
-		}
-		return nil
-	}
-
-	if strings.EqualFold(current.RemoteAppAlias, next.RemoteAppAlias) {
-		if _, err := s.sendAgentCommandWithTimeout("register_remote_app", remoteAppPayload(next), 30*time.Second); err != nil {
-			return fmt.Errorf("更新 RemoteApp 注册失败: %w", err)
-		}
-		return nil
-	}
-
-	if _, err := s.sendAgentCommandWithTimeout("register_remote_app", remoteAppPayload(next), 30*time.Second); err != nil {
-		return fmt.Errorf("注册新 RemoteApp 失败: %w", err)
-	}
-	if _, err := s.sendAgentCommandWithTimeout("unregister_remote_app", map[string]any{
-		"alias": current.RemoteAppAlias,
-	}, 30*time.Second); err != nil {
-		return fmt.Errorf("取消旧 RemoteApp 注册失败: %w", err)
-	}
-	return nil
 }

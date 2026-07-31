@@ -86,6 +86,24 @@ func (s *Service) CreateUser(actorUserID string, input CreateUserInput) (PublicU
 		if windowsExists {
 			return PublicUser{}, errors.New("Windows 用户名已存在")
 		}
+
+		result, err := s.sendAgentCommandWithTimeout("check_windows_user", map[string]any{
+			"windowsUsername": windowsUsername,
+		}, 30*time.Second)
+		if err != nil {
+			return PublicUser{}, fmt.Errorf("检查 Windows 用户失败: %w", err)
+		}
+		data, err := decodeAgentData[map[string]any](result)
+		if err != nil {
+			return PublicUser{}, fmt.Errorf("检查 Windows 用户失败: %w", err)
+		}
+		exists, ok := data["exists"].(bool)
+		if !ok {
+			return PublicUser{}, errors.New("检查 Windows 用户结果无效")
+		}
+		if exists {
+			return PublicUser{}, errors.New("Windows 用户已存在")
+		}
 	}
 
 	passwordHash, err := auth.HashPassword(password)
@@ -93,10 +111,20 @@ func (s *Service) CreateUser(actorUserID string, input CreateUserInput) (PublicU
 		return PublicUser{}, fmt.Errorf("密码哈希失败: %w", err)
 	}
 
+	rdpPassword := ""
+	encryptedRDPPassword := ""
 	if role == models.RoleUser {
+		rdpPassword, err = generateRDPPassword()
+		if err != nil {
+			return PublicUser{}, err
+		}
+		encryptedRDPPassword, err = s.encryptRDPPassword(rdpPassword)
+		if err != nil {
+			return PublicUser{}, err
+		}
 		if _, err := s.sendAgentCommandWithTimeout("create_windows_user", map[string]any{
 			"windowsUsername": windowsUsername,
-			"password":        password,
+			"password":        rdpPassword,
 			"displayName":     displayName,
 		}, 30*time.Second); err != nil {
 			return PublicUser{}, fmt.Errorf("创建 Windows 用户失败: %w", err)
@@ -122,6 +150,7 @@ func (s *Service) CreateUser(actorUserID string, input CreateUserInput) (PublicU
 		DisplayName:     displayName,
 		WindowsUsername: nullableString(windowsUsername),
 		PasswordHash:    passwordHash,
+		RDPPassword:     encryptedRDPPassword,
 		Role:            role,
 		Status:          status,
 	}
@@ -224,18 +253,6 @@ func (s *Service) UpdateUser(actorUserID string, input UpdateUserInput) (PublicU
 	if input.Password != nil {
 		if *input.Password == "" {
 			return PublicUser{}, errors.New("密码不能为空")
-		}
-		if user.Role == models.RoleUser {
-			windowsUsername := publicWindowsUsername(user)
-			if windowsUsername == "" {
-				return PublicUser{}, errors.New("Windows 用户名不能为空")
-			}
-			if _, err := s.sendAgentCommandWithTimeout("set_windows_user_password", map[string]any{
-				"windowsUsername": windowsUsername,
-				"password":        *input.Password,
-			}, 30*time.Second); err != nil {
-				return PublicUser{}, fmt.Errorf("修改 Windows 密码失败: %w", err)
-			}
 		}
 		passwordHash, err := auth.HashPassword(*input.Password)
 		if err != nil {

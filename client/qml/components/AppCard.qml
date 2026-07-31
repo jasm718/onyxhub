@@ -10,7 +10,6 @@ FluFrame {
     property string appName
     property string appPath
     property string appIconSource
-    property bool remoteApp
 
     signal launchRequested
 
@@ -24,79 +23,74 @@ FluFrame {
         onClicked: root.launchRequested()
     }
 
-    ColumnLayout {
+    RowLayout {
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 8
+        anchors.leftMargin: 12
+        anchors.rightMargin: 10
+        anchors.topMargin: 10
+        anchors.bottomMargin: 10
+        spacing: 12
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 12
+        Rectangle {
+            Layout.preferredWidth: 52
+            Layout.preferredHeight: 52
+            Layout.alignment: Qt.AlignVCenter
+            radius: 10
+            color: FluTheme.dark ? "#2f3136" : "#edf5fb"
 
-            Rectangle {
-                Layout.preferredWidth: 40
-                Layout.preferredHeight: 40
-                radius: 10
-                color: FluTheme.dark ? "#2f3136" : "#f4f6f8"
-
-                Image {
-                    anchors.centerIn: parent
-                    width: 24
-                    height: 24
-                    source: root.appIconSource
-                    fillMode: Image.PreserveAspectFit
-                    visible: status === Image.Ready
-                    asynchronous: true
-                }
-
-                FluIcon {
-                    anchors.centerIn: parent
-                    iconSource: FluentIcons.OpenFile
-                    iconSize: 21
-                    iconColor: FluTheme.primaryColor
-                    visible: root.appIconSource.length === 0
-                }
+            Image {
+                anchors.centerIn: parent
+                width: 34
+                height: 34
+                source: root.appIconSource
+                fillMode: Image.PreserveAspectFit
+                visible: status === Image.Ready
+                asynchronous: true
             }
 
-            ColumnLayout {
+            FluIcon {
+                anchors.centerIn: parent
+                iconSource: FluentIcons.OpenFile
+                iconSize: 24
+                iconColor: FluTheme.primaryColor
+                visible: root.appIconSource.length === 0
+            }
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
+            spacing: 4
+
+            FluText {
+                text: root.appName
+                font.pixelSize: 15
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
                 Layout.fillWidth: true
-                spacing: 3
-
-                FluText {
-                    text: root.appName
-                    font.pixelSize: 15
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
-
-                FluText {
-                    text: root.remoteApp ? "RemoteApp" : "桌面会话"
-                    textColor: FluTheme.fontSecondaryColor
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
             }
 
-            FluIconButton {
-                text: "启动"
-                iconSource: FluentIcons.Play
-                iconSize: 16
-                width: 32
-                height: 32
-                onClicked: root.launchRequested()
+            FluText {
+                text: "RemoteApp"
+                textColor: FluTheme.fontSecondaryColor
+                elide: Text.ElideRight
+                Layout.fillWidth: true
             }
         }
 
-        FluText {
-            text: root.appPath
-            textColor: FluTheme.fontSecondaryColor
-            elide: Text.ElideMiddle
-            Layout.fillWidth: true
-        }
-
-        Item {
-            Layout.fillHeight: true
+        FluIconButton {
+            text: "启动"
+            iconSource: FluentIcons.OpenInNewWindow
+            iconSize: 16
+            radius: 6
+            normalColor: FluTheme.primaryColor
+            hoverColor: FluTheme.dark ? Qt.darker(FluTheme.primaryColor, 1.1) : Qt.lighter(FluTheme.primaryColor, 1.1)
+            pressedColor: Qt.darker(FluTheme.primaryColor, 1.2)
+            iconColor: "white"
+            Layout.preferredWidth: 34
+            Layout.preferredHeight: 34
+            Layout.alignment: Qt.AlignVCenter
+            onClicked: root.launchRequested()
         }
     }
 }

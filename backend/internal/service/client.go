@@ -13,6 +13,8 @@ type LaunchInfo struct {
 	ApplicationID string `json:"applicationId"`
 	Mode          string `json:"mode"`
 	Username      string `json:"username"`
+	Password      string `json:"password"`
+	ServerAddress string `json:"serverAddress"`
 	Path          string `json:"path"`
 	Arguments     string `json:"arguments"`
 	WorkingDir    string `json:"workingDir"`
@@ -79,6 +81,41 @@ func (s *Service) GetLaunchInfo(userID string, applicationID string) (LaunchInfo
 	if windowsUsername == "" {
 		return LaunchInfo{}, errors.New("Windows 用户名不能为空")
 	}
+	if !s.agentConnected() {
+		return LaunchInfo{}, errors.New("agent 未连接，无法启动应用")
+	}
+	var agentStatus models.AgentStatus
+	if err := s.db.First(&agentStatus, "id = ?", models.SingleAgentID).Error; err != nil {
+		return LaunchInfo{}, errors.New("Agent 主机地址不可用")
+	}
+	serverAddress := strings.TrimSpace(agentStatus.Hostname)
+	if serverAddress == "" {
+		return LaunchInfo{}, errors.New("Agent 主机地址不可用")
+	}
+	userCheck, err := s.sendAgentCommandWithTimeout("check_windows_user", map[string]any{
+		"windowsUsername": windowsUsername,
+	}, 30*time.Second)
+	if err != nil {
+		return LaunchInfo{}, fmt.Errorf("检查 Windows 用户失败: %w", err)
+	}
+	userCheckData, err := decodeAgentData[map[string]any](userCheck)
+	if err != nil {
+		return LaunchInfo{}, fmt.Errorf("检查 Windows 用户失败: %w", err)
+	}
+	exists, ok := userCheckData["exists"].(bool)
+	if !ok || !exists {
+		return LaunchInfo{}, errors.New("Windows 用户不存在，无法启动应用")
+	}
+	rdpPassword, err := s.decryptRDPPassword(user.RDPPassword)
+	if err != nil {
+		if user.RDPPassword != "" {
+			return LaunchInfo{}, err
+		}
+		rdpPassword, err = s.initializeRDPPassword(&user)
+		if err != nil {
+			return LaunchInfo{}, err
+		}
+	}
 
 	settings, err := s.GetSystemSettings()
 	if err != nil {
@@ -91,17 +128,19 @@ func (s *Service) GetLaunchInfo(userID string, applicationID string) (LaunchInfo
 			return LaunchInfo{}, fmt.Errorf("准备用户环境失败: %w", err)
 		}
 	}
-
-	mode := "desktop"
-	if application.RemoteAppRegistered {
-		mode = "remote_app"
+	if _, err := s.sendAgentCommandWithTimeout("register_remote_app", remoteAppPayload(application), 30*time.Second); err != nil {
+		return LaunchInfo{}, fmt.Errorf("注册 RemoteApp 失败: %w", err)
 	}
-	rdpContent := buildRDPContent(application, windowsUsername, settings.RDPLocalDriveMappingEnabled)
+
+	mode := "remote_app"
+	rdpContent := buildRDPContent(application, serverAddress, windowsUsername, settings.RDPLocalDriveMappingEnabled)
 
 	return LaunchInfo{
 		ApplicationID: application.ID,
 		Mode:          mode,
 		Username:      windowsUsername,
+		Password:      rdpPassword,
+		ServerAddress: serverAddress,
 		Path:          application.Path,
 		Arguments:     application.Arguments,
 		WorkingDir:    application.WorkingDir,
@@ -109,13 +148,15 @@ func (s *Service) GetLaunchInfo(userID string, applicationID string) (LaunchInfo
 	}, nil
 }
 
-func buildRDPContent(application models.Application, windowsUsername string, localDriveMappingEnabled bool) string {
+func buildRDPContent(application models.Application, serverAddress string, windowsUsername string, localDriveMappingEnabled bool) string {
 	redirectDrives := "0"
 	if localDriveMappingEnabled {
 		redirectDrives = "1"
 	}
 
 	lines := []string{
+		"alternate full address:s:" + serverAddress,
+		"full address:s:" + serverAddress,
 		"screen mode id:i:2",
 		"use multimon:i:0",
 		"desktopwidth:i:1920",
@@ -126,21 +167,23 @@ func buildRDPContent(application models.Application, windowsUsername string, loc
 		"redirectcomports:i:0",
 		"redirectsmartcards:i:0",
 		"redirectdrives:i:" + redirectDrives,
-		"prompt for credentials:i:1",
+		"prompt for credentials on client:i:0",
+		"authentication level:i:2",
 		"username:s:" + windowsUsername,
 	}
-	if application.RemoteAppRegistered {
-		lines = append(lines,
-			"remoteapplicationmode:i:1",
-			"remoteapplicationprogram:s:||"+application.RemoteAppAlias,
-			"remoteapplicationname:s:"+application.Name,
-		)
-		if application.WorkingDir != "" {
-			lines = append(lines, "shell working directory:s:"+application.WorkingDir)
-		}
-		if application.Arguments != "" {
-			lines = append(lines, "remoteapplicationcmdline:s:"+application.Arguments)
-		}
+	lines = append(lines,
+		"remoteapplicationmode:i:1",
+		"remoteapplicationname:s:"+application.Name,
+		"remoteapplicationprogram:s:"+application.Path,
+		"disableremoteappcheck:i:1",
+		"alternate shell:s:rdpinit.exe",
+		"disableconnectionsharing:i:1",
+	)
+	if application.WorkingDir != "" {
+		lines = append(lines, "remoteapplicationworkingdir:s:"+application.WorkingDir)
+	}
+	if application.Arguments != "" {
+		lines = append(lines, "remoteapplicationcmdline:s:"+application.Arguments)
 	}
 	return strings.Join(lines, "\r\n") + "\r\n"
 }

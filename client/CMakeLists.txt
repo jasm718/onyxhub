@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Core5Compat Gui Quick Qml Network Svg Widgets)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Core5Compat Gui Quick Qml Network Svg Test Widgets)
 
 qt_standard_project_setup()
 
@@ -24,6 +24,8 @@ qt_add_executable(onyxhub-client
     src/app/ApplicationModel.h
     src/app/ClientApp.cpp
     src/app/ClientApp.h
+    src/security/DesCipher.cpp
+    src/security/DesCipher.h
     src/launcher/Launcher.cpp
     src/launcher/Launcher.h
 )
@@ -63,6 +65,10 @@ target_link_libraries(onyxhub-client PRIVATE
     fluentuiplugin
 )
 
+if(WIN32)
+    target_link_libraries(onyxhub-client PRIVATE bcrypt)
+endif()
+
 set_target_properties(onyxhub-client PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE TRUE
@@ -79,3 +85,30 @@ install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qml/FluentUI"
 )
 
 qt_finalize_executable(onyxhub-client)
+
+include(CTest)
+
+if(BUILD_TESTING)
+    qt_add_executable(des-cipher-test
+        tests/DesCipherTest.cpp
+        src/security/DesCipher.cpp
+        src/security/DesCipher.h
+    )
+
+    target_include_directories(des-cipher-test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(des-cipher-test PRIVATE
+        Qt6::Core
+        Qt6::Test
+        bcrypt
+    )
+
+    add_custom_command(TARGET des-cipher-test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt6::Core>" "$<TARGET_FILE_DIR:des-cipher-test>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt6::Test>" "$<TARGET_FILE_DIR:des-cipher-test>"
+    )
+
+    add_test(NAME des-cipher-test COMMAND des-cipher-test)
+endif()

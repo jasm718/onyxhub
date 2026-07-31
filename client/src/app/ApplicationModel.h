@@ -12,8 +12,6 @@ struct ApplicationItem {
     QString arguments;
     QString workingDir;
     QString status;
-    bool remoteAppRegistered = false;
-    QString remoteAppAlias;
 };
 
 class ApplicationModel : public QAbstractListModel {
@@ -30,8 +28,6 @@ public:
         ArgumentsRole,
         WorkingDirRole,
         StatusRole,
-        RemoteAppRegisteredRole,
-        RemoteAppAliasRole
     };
 
     explicit ApplicationModel(QObject *parent = nullptr);

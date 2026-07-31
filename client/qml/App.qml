@@ -10,8 +10,7 @@ FluWindow {
 
     width: 860
     height: 560
-    minimumWidth: 760
-    minimumHeight: 500
+    fixSize: true
     title: "OnyxHub"
     showDark: true
     closeListener: function(event) {
@@ -52,7 +51,7 @@ FluWindow {
         }
 
         function onLaunchStarted() {
-            window.showSuccess("已调用系统远程桌面客户端", 1800)
+            window.showSuccess("已启动远程应用", 1800)
         }
 
         function onConnectionTestSucceeded(message) {
@@ -123,12 +122,6 @@ FluWindow {
         id: settingsDialog
 
         title: "设置"
-        titleFont: Qt.font({
-            family: FluTextStyle.Body.family,
-            pixelSize: 20,
-            weight: Font.DemiBold
-        })
-        showCloseButton: true
         negativeText: "测试连接"
         positiveText: "完成"
         buttonFlags: FluContentDialogType.NegativeButton | FluContentDialogType.PositiveButton

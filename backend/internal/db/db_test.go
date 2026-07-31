@@ -22,12 +22,11 @@ func TestOpenInitializesApplicationIconDefault(t *testing.T) {
 	}
 
 	if err := database.Exec(
-		"INSERT INTO applications (id, name, path, status, remote_app_registered) VALUES (?, ?, ?, ?, ?)",
+		"INSERT INTO applications (id, name, path, status) VALUES (?, ?, ?, ?)",
 		"app_default_icon",
 		"c:\\app\\default.exe",
 		"active",
 		models.StatusActive,
-		false,
 	).Error; err != nil {
 		t.Fatalf("insert application returned error: %v", err)
 	}

@@ -37,7 +37,7 @@ type commandResult struct {
 func NewClient(cfg Config, logger *applog.Logger) *Client {
 	return &Client{
 		cfg:      cfg,
-		executor: NewExecutor(),
+		executor: NewExecutor(logger),
 		logger:   logger,
 	}
 }

@@ -18,14 +18,16 @@ import (
 )
 
 type MessageHandler func(raw []byte) error
+type ConnectionHandler func()
 
 type Manager struct {
 	mu      sync.Mutex
 	writeMu sync.Mutex
 
-	conn    *websocket.Conn
-	pending map[string]pendingCommand
-	handler MessageHandler
+	conn      *websocket.Conn
+	pending   map[string]pendingCommand
+	handler   MessageHandler
+	onConnect ConnectionHandler
 }
 
 type pendingCommand struct {
@@ -71,6 +73,12 @@ func (m *Manager) SetMessageHandler(handler MessageHandler) {
 	m.handler = handler
 }
 
+func (m *Manager) SetConnectionHandler(handler ConnectionHandler) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.onConnect = handler
+}
+
 func (m *Manager) IsConnected() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -87,10 +95,14 @@ func (m *Manager) Handle(c *gin.Context) {
 	m.mu.Lock()
 	old := m.conn
 	m.conn = conn
+	onConnect := m.onConnect
 	m.mu.Unlock()
 
 	if old != nil {
 		_ = old.Close()
+	}
+	if onConnect != nil {
+		go onConnect()
 	}
 
 	m.readLoop(conn)

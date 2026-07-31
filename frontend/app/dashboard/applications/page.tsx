@@ -88,8 +88,6 @@ type ApplicationFormState = {
   arguments: string
   workingDir: string
   status: "active" | "disabled"
-  remoteAppRegistered: boolean
-  remoteAppAlias: string
 }
 
 const emptyForm: ApplicationFormState = {
@@ -99,8 +97,6 @@ const emptyForm: ApplicationFormState = {
   arguments: "",
   workingDir: "",
   status: "active",
-  remoteAppRegistered: false,
-  remoteAppAlias: "",
 }
 
 function toForm(application: Application): ApplicationFormState {
@@ -111,8 +107,6 @@ function toForm(application: Application): ApplicationFormState {
     arguments: application.arguments,
     workingDir: application.workingDir,
     status: application.status,
-    remoteAppRegistered: application.remoteAppRegistered,
-    remoteAppAlias: application.remoteAppAlias,
   }
 }
 
@@ -540,11 +534,6 @@ export default function ApplicationsPage() {
                 className="size-6 shrink-0 rounded-[4px]"
               />
               <span className="truncate font-medium">{application.name}</span>
-              {application.remoteAppRegistered && application.remoteAppAlias ? (
-                <span className="hidden truncate text-xs text-muted-foreground md:inline">
-                  {application.remoteAppAlias}
-                </span>
-              ) : null}
             </div>
           )
         },
@@ -673,7 +662,7 @@ export default function ApplicationsPage() {
       return [
         row.original.name,
         row.original.path,
-        row.original.remoteAppAlias,
+        row.original.path,
       ]
         .join(" ")
         .toLowerCase()

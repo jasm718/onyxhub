@@ -17,10 +17,47 @@ function Invoke-Checked {
     }
 }
 
+function Get-CSharpCompiler {
+    $candidates = @(
+        (Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\csc.exe"),
+        (Join-Path $env:WINDIR "Microsoft.NET\Framework\v4.0.30319\csc.exe")
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) {
+            return $candidate
+        }
+    }
+    throw "未找到 .NET Framework C# 编译器 csc.exe"
+}
+
 $qtConfig = Join-Path $QtPrefix "lib\cmake\Qt6\Qt6Config.cmake"
 if (-not (Test-Path $qtConfig)) {
     throw "Qt not found: $QtPrefix"
 }
+
+$launcherSource = Join-Path $clientRoot "launchers\ActiveRemoteAppLauncher.cs"
+$launcherRuntimeDir = Join-Path $clientRoot "runtime\active-remoteapp"
+$launcherExe = Join-Path $launcherRuntimeDir "RichActiveRemoteApp.exe"
+$mstscInterop = Join-Path $launcherRuntimeDir "MSTSCLib.dll"
+$axMstscInterop = Join-Path $launcherRuntimeDir "AxInterop.MSTSCLib.dll"
+foreach ($path in @($launcherSource, $mstscInterop, $axMstscInterop)) {
+    if (-not (Test-Path $path)) {
+        throw "缺少 C# 远程应用启动器文件: $path"
+    }
+}
+
+$csc = Get-CSharpCompiler
+New-Item -ItemType Directory -Force $launcherRuntimeDir | Out-Null
+Invoke-Checked $csc `
+    /nologo /target:winexe /optimize+ /platform:x64 `
+    "/out:$launcherExe" `
+    /reference:System.dll `
+    /reference:System.Windows.Forms.dll `
+    /reference:System.Drawing.dll `
+    /reference:System.Web.Extensions.dll `
+    "/reference:$mstscInterop" `
+    "/reference:$axMstscInterop" `
+    $launcherSource
 
 Invoke-Checked cmake `
     -S $clientRoot `
@@ -51,6 +88,12 @@ Copy-Item (Join-Path $buildDir "qml\FluentUI") (Join-Path $distDir "imports") -R
 Copy-Item $fluentUiPlugin (Join-Path $fluentUiDist "fluentuiplugin.dll") -Force
 New-Item -ItemType Directory -Force (Join-Path $fluentUiDist $Configuration) | Out-Null
 Copy-Item $fluentUiPlugin (Join-Path $fluentUiDist "$Configuration\fluentuiplugin.dll") -Force
+
+$launcherDistDir = Join-Path $distDir "runtime\active-remoteapp"
+New-Item -ItemType Directory -Force $launcherDistDir | Out-Null
+Copy-Item $launcherExe (Join-Path $launcherDistDir "RichActiveRemoteApp.exe") -Force
+Copy-Item $mstscInterop (Join-Path $launcherDistDir "MSTSCLib.dll") -Force
+Copy-Item $axMstscInterop (Join-Path $launcherDistDir "AxInterop.MSTSCLib.dll") -Force
 
 Invoke-Checked (Join-Path $QtPrefix "bin\windeployqt.exe") `
     --release `

@@ -231,6 +231,10 @@ New-ItemProperty -Path $policy -Name "fAllowUnlistedRemotePrograms" -Value 1 -Pr
 Remove-ItemProperty -Path $policy -Name "MaxDisconnectionTime" -ErrorAction SilentlyContinue
 Remove-ItemProperty -Path $policy -Name "fResetBroken" -ErrorAction SilentlyContinue
 
+$edgePolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+New-Item -Path $edgePolicy -Force | Out-Null
+New-ItemProperty -Path $edgePolicy -Name "HideFirstRunExperience" -Value 1 -PropertyType DWord -Force | Out-Null
+
 Invoke-AgentServiceCommand -Binary $agentBinary -Command "install" -StepName "安装 OnyxHub Agent 服务"
 Invoke-AgentServiceCommand -Binary $agentBinary -Command "start" -StepName "启动 OnyxHub Agent 服务"
 

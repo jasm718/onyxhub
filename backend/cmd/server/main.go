@@ -24,6 +24,11 @@ func main() {
 	agent := agentws.NewManager()
 	svc := service.New(database, cfg.JWTSecret, agent)
 	agent.SetMessageHandler(svc.HandleAgentMessage)
+	agent.SetConnectionHandler(func() {
+		if err := svc.SyncAgentSettings(); err != nil {
+			log.Printf("同步 agent 设置失败: %v", err)
+		}
+	})
 
 	router := httpserver.NewRouter(svc, cfg.JWTSecret, agent, cfg.CORSAllowedOrigins)
 	log.Printf("OnyxHub backend listening on %s", cfg.HTTPAddr)

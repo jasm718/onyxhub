@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"onyxhub/agent/internal/applog"
 )
 
 type Executor struct {
@@ -22,6 +24,7 @@ type Executor struct {
 	storage            StorageSettings
 	cleanupCancel      context.CancelFunc
 	cleanupLogoffAfter time.Duration
+	logger             *applog.Logger
 }
 
 type TerminalSession struct {
@@ -45,8 +48,8 @@ type InstalledApplication struct {
 	WorkingDir string `json:"workingDir"`
 }
 
-func NewExecutor() *Executor {
-	return &Executor{}
+func NewExecutor(logger *applog.Logger) *Executor {
+	return &Executor{logger: logger}
 }
 
 func (e *Executor) Execute(ctx context.Context, name string, raw json.RawMessage) (any, error) {
@@ -228,7 +231,11 @@ func runPowerShell(timeout time.Duration, script string) (string, error) {
 }
 
 func runPowerShellContext(ctx context.Context, script string) (string, error) {
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script)
+	utf8Script := `[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+` + script
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", utf8Script)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -319,6 +326,13 @@ func (e *Executor) CreateWindowsUser(ctx context.Context, payload createWindowsU
 	username, err := requireWindowsUsername(payload.WindowsUsername)
 	if err != nil {
 		return err
+	}
+	user, err := e.CheckWindowsUser(ctx, username)
+	if err != nil {
+		return fmt.Errorf("检查 Windows 用户失败: %w", err)
+	}
+	if exists, _ := user["exists"].(bool); exists {
+		return errors.New("Windows 用户已存在")
 	}
 	if payload.Password == "" {
 		return errors.New("Windows 用户密码不能为空")
@@ -772,12 +786,7 @@ func parseQuserOutput(out string) []TerminalSession {
 			continue
 		}
 		sessionID, _ := strconv.Atoi(fields[idIndex])
-		state := strings.ToLower(fields[idIndex+1])
-		if state == "active" {
-			state = "active"
-		} else {
-			state = "disconnected"
-		}
+		state := normalizeTerminalSessionState(fields[idIndex+1])
 		connectedAt := parseQuserLogonTime(strings.Join(fields[minInt(idIndex+3, len(fields)):], " "))
 		items = append(items, TerminalSession{
 			WindowsSessionID: sessionID,
@@ -787,6 +796,17 @@ func parseQuserOutput(out string) []TerminalSession {
 		})
 	}
 	return items
+}
+
+func normalizeTerminalSessionState(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "active", "活动", "connected", "连接", "已连接", "idle", "空闲":
+		return "active"
+	case "disc", "disconnected", "断开", "已断开", "断开连接":
+		return "disconnected"
+	default:
+		return "unknown"
+	}
 }
 
 func parseQuserLogonTime(value string) time.Time {
@@ -850,6 +870,7 @@ func (e *Executor) cleanupLoop(ctx context.Context) {
 		case now := <-ticker.C:
 			sessions, err := e.ListTerminalSessions()
 			if err != nil {
+				e.logger.Error("disconnected_session_query_failed", "查询终端会话失败", applog.F("error", err))
 				continue
 			}
 			for _, session := range sessions {
@@ -865,7 +886,11 @@ func (e *Executor) cleanupLoop(ctx context.Context) {
 				logoffAfter := e.cleanupLogoffAfter
 				e.mu.Unlock()
 				if now.Sub(disconnectedSince[session.WindowsSessionID]) >= logoffAfter {
-					_ = e.LogoffTerminalSession(ctx, session.WindowsSessionID)
+					if err := e.LogoffTerminalSession(ctx, session.WindowsSessionID); err != nil {
+						e.logger.Error("disconnected_session_logoff_failed", "注销断开会话失败", applog.F("windowsSessionId", session.WindowsSessionID), applog.F("windowsUsername", session.WindowsUsername), applog.F("error", err))
+						continue
+					}
+					e.logger.Info("disconnected_session_logoff_succeeded", "已注销断开会话", applog.F("windowsSessionId", session.WindowsSessionID), applog.F("windowsUsername", session.WindowsUsername))
 					delete(disconnectedSince, session.WindowsSessionID)
 				}
 			}

@@ -30,8 +30,6 @@ export type Application = {
   arguments: string
   workingDir: string
   status: "active" | "disabled"
-  remoteAppRegistered: boolean
-  remoteAppAlias: string
   createdAt: string
   updatedAt: string
 }
@@ -149,8 +147,6 @@ export type CreateApplicationInput = {
   arguments: string
   workingDir: string
   status: "active" | "disabled"
-  remoteAppRegistered: boolean
-  remoteAppAlias: string
 }
 
 export type UpdateApplicationInput = CreateApplicationInput & {

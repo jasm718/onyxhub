@@ -47,6 +47,19 @@ func (s *Service) GetSystemSettings() (models.SystemSettings, error) {
 	return settings, nil
 }
 
+func (s *Service) SyncAgentSettings() error {
+	settings, err := s.GetSystemSettings()
+	if err != nil {
+		return err
+	}
+	if _, err := s.sendAgentCommandWithTimeout("start_disconnected_session_cleanup", map[string]any{
+		"logoffMinutes": settings.DisconnectedSessionLogoffMinutes,
+	}, 30*time.Second); err != nil {
+		return fmt.Errorf("同步断开会话清理设置失败: %w", err)
+	}
+	return nil
+}
+
 func (s *Service) UpdateSystemSettings(actorUserID string, input UpdateSystemSettingsInput) (models.SystemSettings, error) {
 	current, err := s.GetSystemSettings()
 	if err != nil {
