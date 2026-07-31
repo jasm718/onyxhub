@@ -12,6 +12,9 @@
 #include <QStringList>
 #include <QUuid>
 
+#define NOMINMAX
+#include <windows.h>
+
 namespace {
 QString withServerAddress(const QString &rdpContent, const QString &serverAddress) {
     const QString address = serverAddress.trimmed();
@@ -51,7 +54,7 @@ bool Launcher::launchRdp(const QString &rdpContent,
                          const QString &serverAddress,
                          const QString &username,
                          const QString &password,
-                         QString *statusFilePath,
+                         LaunchedProcess *process,
                          QString *errorMessage) {
     if (rdpContent.trimmed().isEmpty()) {
         if (errorMessage) {
@@ -97,8 +100,6 @@ bool Launcher::launchRdp(const QString &rdpContent,
     file.close();
 
     const QString credentialPath = dir.filePath(QUuid::createUuid().toString(QUuid::WithoutBraces) + QStringLiteral(".json"));
-    const QString statusPath = dir.filePath(QUuid::createUuid().toString(QUuid::WithoutBraces) + QStringLiteral(".status.json"));
-    QFile::remove(statusPath);
     QFile credentialFile(credentialPath);
     if (!credentialFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         if (errorMessage) {
@@ -138,8 +139,7 @@ bool Launcher::launchRdp(const QString &rdpContent,
     qint64 processId = 0;
     const bool started = QProcess::startDetached(
         launcherPath,
-        {QStringLiteral("--rdp-file"), filePath, QStringLiteral("--credential-file"), credentialPath,
-         QStringLiteral("--status-file"), statusPath},
+        {QStringLiteral("--rdp-file"), filePath, QStringLiteral("--credential-file"), credentialPath},
         runtimeDir,
         &processId);
     if (!started) {
@@ -151,9 +151,36 @@ bool Launcher::launchRdp(const QString &rdpContent,
         return false;
     }
 
-    if (statusFilePath) {
-        *statusFilePath = statusPath;
+    HANDLE processHandle = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(processId));
+    if (!processHandle) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("无法监控远程应用启动器");
+        }
+        return false;
+    }
+
+    if (process) {
+        process->id = processId;
+        process->handle = reinterpret_cast<quintptr>(processHandle);
+    } else {
+        CloseHandle(processHandle);
     }
 
     return true;
+}
+
+bool Launcher::isRunning(const LaunchedProcess &process) const {
+    if (!process.handle) {
+        return false;
+    }
+    return WaitForSingleObject(reinterpret_cast<HANDLE>(process.handle), 0) == WAIT_TIMEOUT;
+}
+
+void Launcher::release(LaunchedProcess *process) const {
+    if (!process || !process->handle) {
+        return;
+    }
+    CloseHandle(reinterpret_cast<HANDLE>(process->handle));
+    process->handle = 0;
+    process->id = 0;
 }

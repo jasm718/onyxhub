@@ -6,11 +6,10 @@
 #include "security/DesCipher.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QHostAddress>
 #include <QJsonArray>
-#include <QJsonDocument>
 #include <QJsonObject>
-#include <QFile>
 #include <QUrl>
 #include <QUrlQuery>
 
@@ -22,6 +21,7 @@ constexpr auto SettingsRememberedBaseUrl = "rememberedBaseUrl";
 constexpr auto SettingsRememberedUsername = "rememberedUsername";
 constexpr auto SettingsRememberedPassword = "rememberedPassword";
 constexpr int DefaultServerPort = 8080;
+constexpr qint64 RunningStateDelayMs = 5000;
 
 QString settingsFilePath() {
     return QCoreApplication::applicationDirPath() + QStringLiteral("/config.ini");
@@ -34,37 +34,8 @@ ClientApp::ClientApp(ApiClient *apiClient, ApplicationModel *applicationModel, L
       m_applicationModel(applicationModel),
       m_launcher(launcher),
       m_settings(settingsFilePath(), QSettings::IniFormat) {
-    m_launchStatusTimer.setInterval(200);
-    connect(&m_launchStatusTimer, &QTimer::timeout, this, [this]() {
-        ++m_launchStatusChecks;
-        QFile statusFile(m_pendingLaunchStatusPath);
-        if (statusFile.open(QIODevice::ReadOnly)) {
-            QByteArray data = statusFile.readAll();
-            if (data.startsWith("\xEF\xBB\xBF")) data.remove(0, 3);
-            const QJsonObject status = QJsonDocument::fromJson(data).object();
-            const QString state = status.value(QStringLiteral("status")).toString();
-            if (state == QStringLiteral("ready")) {
-                m_launchStatusTimer.stop();
-                statusFile.remove();
-                setBusy(false);
-                emit launchStarted(m_pendingLaunchApplication);
-                return;
-            }
-            if (state == QStringLiteral("failed")) {
-                m_launchStatusTimer.stop();
-                statusFile.remove();
-                setBusy(false);
-                setError(status.value(QStringLiteral("message")).toString(QStringLiteral("远程应用启动失败")));
-                return;
-            }
-        }
-        if (m_launchStatusChecks >= 150) {
-            m_launchStatusTimer.stop();
-            statusFile.remove();
-            setBusy(false);
-            setError(QStringLiteral("远程应用启动超时"));
-        }
-    });
+    m_launchProcessTimer.setInterval(1000);
+    connect(&m_launchProcessTimer, &QTimer::timeout, this, &ClientApp::pollLaunchProcesses);
     loadSettings();
     saveServerAddress();
     saveSession();
@@ -72,6 +43,10 @@ ClientApp::ClientApp(ApiClient *apiClient, ApplicationModel *applicationModel, L
         setAuthenticated(true);
         refreshApplications();
     }
+}
+
+ClientApp::~ClientApp() {
+    clearLaunchSessions();
 }
 
 QString ClientApp::baseUrl() const {
@@ -208,6 +183,7 @@ void ClientApp::login(const QString &username, const QString &password, bool rem
 }
 
 void ClientApp::logout() {
+    clearLaunchSessions();
     clearSession();
     setAuthenticated(false);
     setDisplayName(QString());
@@ -251,43 +227,58 @@ void ClientApp::launchApplication(const QString &applicationId) {
         setError(addressError);
         return;
     }
-    if (applicationId.trimmed().isEmpty()) {
+    const QString normalizedApplicationId = applicationId.trimmed();
+    if (normalizedApplicationId.isEmpty()) {
         setError(QStringLiteral("应用 ID 不能为空"));
         return;
     }
+    if (m_applicationModel->launchState(normalizedApplicationId) != QStringLiteral("idle")) {
+        return;
+    }
+
+    const QString modelApplicationName = m_applicationModel->applicationName(normalizedApplicationId);
+    m_applicationModel->setLaunchState(normalizedApplicationId, QStringLiteral("starting"));
 
     QUrlQuery query;
-    query.addQueryItem(QStringLiteral("applicationId"), applicationId.trimmed());
+    query.addQueryItem(QStringLiteral("applicationId"), normalizedApplicationId);
 
-    setBusy(true, QStringLiteral("正在准备启动"));
     m_apiClient->getJson(
         m_baseUrl,
         QStringLiteral("/api/client/applications/launch-info"),
         query,
         m_token,
-        [this](const QJsonValue &data) {
+        [this, normalizedApplicationId, modelApplicationName](const QJsonValue &data) {
+            if (m_applicationModel->launchState(normalizedApplicationId) != QStringLiteral("starting")) {
+                return;
+            }
             const QJsonObject object = data.toObject();
             const QString rdpContent = object.value(QStringLiteral("rdpContent")).toString();
-            const QString applicationName = object.value(QStringLiteral("path")).toString();
+            const QString applicationName = modelApplicationName.isEmpty()
+                ? object.value(QStringLiteral("path")).toString()
+                : modelApplicationName;
 
             QString error;
             const QString username = object.value(QStringLiteral("username")).toString();
             const QString rdpPassword = object.value(QStringLiteral("password")).toString();
             const QString serverAddress = object.value(QStringLiteral("serverAddress")).toString().trimmed();
-            QString statusPath;
-            if (!m_launcher->launchRdp(rdpContent, serverAddress, username, rdpPassword, &statusPath, &error)) {
-                setBusy(false);
+            LaunchedProcess process;
+            if (!m_launcher->launchRdp(rdpContent, serverAddress, username, rdpPassword, &process, &error)) {
+                m_applicationModel->setLaunchState(normalizedApplicationId, QStringLiteral("idle"));
                 setError(error);
                 return;
             }
-            m_pendingLaunchStatusPath = statusPath;
-            m_pendingLaunchApplication = applicationName;
-            m_launchStatusChecks = 0;
-            setBusy(true, QStringLiteral("正在连接远程应用"));
-            m_launchStatusTimer.start();
+
+            LaunchSession session;
+            session.process = process;
+            session.applicationName = applicationName;
+            session.startedAt = QDateTime::currentMSecsSinceEpoch();
+            m_launchSessions.insert(normalizedApplicationId, session);
+            if (!m_launchProcessTimer.isActive()) {
+                m_launchProcessTimer.start();
+            }
         },
-        [this](const QString &message, int statusCode) {
-            setBusy(false);
+        [this, normalizedApplicationId](const QString &message, int statusCode) {
+            m_applicationModel->setLaunchState(normalizedApplicationId, QStringLiteral("idle"));
             handleUnauthorized(statusCode);
             setError(message);
         });
@@ -454,10 +445,48 @@ void ClientApp::setError(const QString &message) {
 
 void ClientApp::handleUnauthorized(int statusCode) {
     if (statusCode == 401 || statusCode == 403) {
+        clearLaunchSessions();
         clearSession();
         setAuthenticated(false);
         m_applicationModel->clear();
     }
+}
+
+void ClientApp::pollLaunchProcesses() {
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    QStringList exitedApplicationIds;
+
+    for (auto it = m_launchSessions.begin(); it != m_launchSessions.end(); ++it) {
+        if (!m_launcher->isRunning(it->process)) {
+            m_launcher->release(&it->process);
+            exitedApplicationIds.append(it.key());
+            continue;
+        }
+
+        if (m_applicationModel->launchState(it.key()) == QStringLiteral("starting")
+            && now - it->startedAt >= RunningStateDelayMs) {
+            m_applicationModel->setLaunchState(it.key(), QStringLiteral("running"));
+            emit launchStarted(it->applicationName);
+        }
+    }
+
+    for (const QString &applicationId : exitedApplicationIds) {
+        m_launchSessions.remove(applicationId);
+        m_applicationModel->setLaunchState(applicationId, QStringLiteral("idle"));
+    }
+
+    if (m_launchSessions.isEmpty()) {
+        m_launchProcessTimer.stop();
+    }
+}
+
+void ClientApp::clearLaunchSessions() {
+    m_launchProcessTimer.stop();
+    for (auto it = m_launchSessions.begin(); it != m_launchSessions.end(); ++it) {
+        m_launcher->release(&it->process);
+    }
+    m_launchSessions.clear();
+    m_applicationModel->clearLaunchStates();
 }
 
 QString ClientApp::normalizeServerAddressInput(const QString &serverAddressInput) const {

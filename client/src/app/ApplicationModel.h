@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractListModel>
+#include <QHash>
 #include <QJsonArray>
 #include <QVector>
 
@@ -28,6 +29,7 @@ public:
         ArgumentsRole,
         WorkingDirRole,
         StatusRole,
+        LaunchStateRole,
     };
 
     explicit ApplicationModel(QObject *parent = nullptr);
@@ -38,6 +40,10 @@ public:
 
     int count() const;
     void setApplications(const QJsonArray &applications);
+    QString applicationName(const QString &applicationId) const;
+    QString launchState(const QString &applicationId) const;
+    void setLaunchState(const QString &applicationId, const QString &state);
+    void clearLaunchStates();
     Q_INVOKABLE void clear();
 
 signals:
@@ -45,4 +51,5 @@ signals:
 
 private:
     QVector<ApplicationItem> m_items;
+    QHash<QString, QString> m_launchStates;
 };

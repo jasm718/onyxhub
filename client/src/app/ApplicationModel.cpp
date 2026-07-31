@@ -34,6 +34,8 @@ QVariant ApplicationModel::data(const QModelIndex &index, int role) const {
         return item.workingDir;
     case StatusRole:
         return item.status;
+    case LaunchStateRole:
+        return m_launchStates.value(item.id, QStringLiteral("idle"));
     default:
         return {};
     }
@@ -49,7 +51,52 @@ QHash<int, QByteArray> ApplicationModel::roleNames() const {
         {ArgumentsRole, "arguments"},
         {WorkingDirRole, "workingDir"},
         {StatusRole, "status"},
+        {LaunchStateRole, "applicationLaunchState"},
     };
+}
+
+QString ApplicationModel::applicationName(const QString &applicationId) const {
+    for (const ApplicationItem &item : m_items) {
+        if (item.id == applicationId) {
+            return item.name;
+        }
+    }
+    return {};
+}
+
+QString ApplicationModel::launchState(const QString &applicationId) const {
+    return m_launchStates.value(applicationId, QStringLiteral("idle"));
+}
+
+void ApplicationModel::setLaunchState(const QString &applicationId, const QString &state) {
+    const QString currentState = launchState(applicationId);
+    if (currentState == state) {
+        return;
+    }
+
+    if (state == QStringLiteral("idle")) {
+        m_launchStates.remove(applicationId);
+    } else {
+        m_launchStates.insert(applicationId, state);
+    }
+
+    for (int row = 0; row < m_items.size(); ++row) {
+        if (m_items.at(row).id == applicationId) {
+            const QModelIndex itemIndex = index(row);
+            emit dataChanged(itemIndex, itemIndex, {LaunchStateRole});
+            return;
+        }
+    }
+}
+
+void ApplicationModel::clearLaunchStates() {
+    if (m_launchStates.isEmpty()) {
+        return;
+    }
+    m_launchStates.clear();
+    if (!m_items.isEmpty()) {
+        emit dataChanged(index(0), index(m_items.size() - 1), {LaunchStateRole});
+    }
 }
 
 int ApplicationModel::count() const {

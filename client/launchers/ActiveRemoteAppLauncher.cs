@@ -29,7 +29,6 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
         public bool IsRemoteApp;
         public string BrokerPipeName = "";
         public string BrokerMutexName = "";
-        public string StatusPath = "";
 
         public RemoteProgramRequest ToRemoteProgramRequest()
         {
@@ -53,7 +52,6 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
     {
         private const int StartupTimeoutSeconds = 60;
         private static readonly string LogPath = Path.Combine(Path.GetTempPath(), "RichActiveRemoteApp.log");
-        internal static string StatusPath = "";
 
         [STAThread]
         private static int Main(string[] args)
@@ -62,9 +60,7 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
             {
                 Log("launcher start");
                 RdpOptions options = ParseArguments(args);
-                StatusPath = options.StatusPath;
                 ValidateOptions(options);
-                WriteStatus("starting", "");
                 Log("target=" + options.Server + ":" + options.Port + ", user=" + options.Username + ", program=" + options.RemoteProgram);
 
                 if (options.BrokerMode)
@@ -121,25 +117,7 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
             catch (Exception ex)
             {
                 Log("fatal: " + ex);
-                WriteStatus("failed", ex.Message);
                 return 1;
-            }
-        }
-
-        internal static void WriteStatus(string status, string message)
-        {
-            if (string.IsNullOrWhiteSpace(StatusPath)) return;
-            try
-            {
-                JavaScriptSerializer serializer = new JavaScriptSerializer();
-                Dictionary<string, string> data = new Dictionary<string, string>();
-                data["status"] = status ?? "";
-                data["message"] = message ?? "";
-                File.WriteAllText(StatusPath, serializer.Serialize(data), Encoding.UTF8);
-            }
-            catch (Exception ex)
-            {
-                Log("status write failed: " + ex.Message);
             }
         }
 
@@ -171,7 +149,6 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
         {
             string rdpFile = "";
             string credentialFile = "";
-            string statusFile = "";
             bool brokerMode = false;
             for (int i = 0; i < args.Length; i++)
             {
@@ -183,10 +160,6 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
                 else if (arg == "--credential-file")
                 {
                     credentialFile = ReadValue(args, ref i, arg);
-                }
-                else if (arg == "--status-file")
-                {
-                    statusFile = ReadValue(args, ref i, arg);
                 }
                 else if (arg == "--broker")
                 {
@@ -225,7 +198,6 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
             options.RedirectDrives = GetValue(rdp, "redirectdrives") == "1";
             options.DisableConnectionSharing = GetValue(rdp, "disableconnectionsharing") == "1";
             options.BrokerMode = brokerMode;
-            options.StatusPath = statusFile;
             return options;
         }
 
@@ -520,7 +492,6 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
             private readonly BrokerServer _brokerServer;
             private bool _programStarted;
             private bool _loginComplete;
-            private bool _startupStatusWritten;
 
             public LauncherForm(RdpOptions options)
             {
@@ -544,13 +515,7 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
                 _startupTimer.Interval = StartupTimeoutSeconds * 1000;
                 _startupTimer.Tick += delegate
                 {
-                    if (_startupStatusWritten)
-                    {
-                        return;
-                    }
                     Program.Log("startup timeout");
-                    _startupStatusWritten = true;
-                    Program.WriteStatus("failed", "远程应用启动超时");
                     Close();
                 };
             }
@@ -636,7 +601,7 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
 
             private void AttachEvents()
             {
-                _client.OnConnecting += delegate { Program.Log("event OnConnecting"); Program.WriteStatus("connecting", ""); };
+                _client.OnConnecting += delegate { Program.Log("event OnConnecting"); };
                 _client.OnConnected += delegate { Program.Log("event OnConnected"); };
                 _client.OnLoginComplete += delegate
                 {
@@ -646,7 +611,6 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
                     {
                         _startupTimer.Stop();
                         Program.Log("desktop session ready");
-                        WriteReadyStatus();
                     }
                     else if (_options.BrokerMode)
                     {
@@ -671,11 +635,6 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
                 _client.OnFatalError += delegate(object sender, IMsTscAxEvents_OnFatalErrorEvent e)
                 {
                     Program.Log("event OnFatalError code=" + e.errorCode);
-                    if (!_startupStatusWritten)
-                    {
-                        _startupStatusWritten = true;
-                        Program.WriteStatus("failed", "RDP 致命错误，错误码：" + e.errorCode);
-                    }
                     Close();
                 };
                 _client.OnWarning += delegate(object sender, IMsTscAxEvents_OnWarningEvent e)
@@ -695,22 +654,7 @@ namespace RichRemoteApp.ActiveRemoteAppLauncher
                 _client.OnRemoteProgramDisplayed += delegate(object sender, IMsTscAxEvents_OnRemoteProgramDisplayedEvent e)
                 {
                     Program.Log("event OnRemoteProgramDisplayed displayed=" + e.vbDisplayed + ", info=" + e.uDisplayInformation);
-                    if (_options.IsRemoteApp && e.vbDisplayed)
-                    {
-                        _startupTimer.Stop();
-                        WriteReadyStatus();
-                    }
                 };
-            }
-
-            private void WriteReadyStatus()
-            {
-                if (_startupStatusWritten)
-                {
-                    return;
-                }
-                _startupStatusWritten = true;
-                Program.WriteStatus("ready", "");
             }
 
             private void QueueRemoteProgramRequest(RemoteProgramRequest request)

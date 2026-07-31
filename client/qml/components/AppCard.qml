@@ -10,6 +10,7 @@ FluFrame {
     property string appName
     property string appPath
     property string appIconSource
+    property string launchState: "idle"
 
     signal launchRequested
 
@@ -20,6 +21,7 @@ FluFrame {
         id: mouseArea
         anchors.fill: parent
         hoverEnabled: true
+        enabled: root.launchState === "idle"
         onClicked: root.launchRequested()
     }
 
@@ -71,7 +73,9 @@ FluFrame {
             }
 
             FluText {
-                text: "RemoteApp"
+                text: root.launchState === "starting"
+                    ? "正在启动"
+                    : root.launchState === "running" ? "已启动" : "RemoteApp"
                 textColor: FluTheme.fontSecondaryColor
                 elide: Text.ElideRight
                 Layout.fillWidth: true
@@ -90,6 +94,7 @@ FluFrame {
             Layout.preferredWidth: 34
             Layout.preferredHeight: 34
             Layout.alignment: Qt.AlignVCenter
+            disabled: root.launchState !== "idle"
             onClicked: root.launchRequested()
         }
     }

@@ -1,12 +1,14 @@
 #pragma once
 
+#include "launcher/Launcher.h"
+
+#include <QHash>
 #include <QObject>
 #include <QSettings>
 #include <QTimer>
 
 class ApiClient;
 class ApplicationModel;
-class Launcher;
 
 class ClientApp : public QObject {
     Q_OBJECT
@@ -23,6 +25,7 @@ class ClientApp : public QObject {
 
 public:
     ClientApp(ApiClient *apiClient, ApplicationModel *applicationModel, Launcher *launcher, QObject *parent = nullptr);
+    ~ClientApp() override;
 
     QString baseUrl() const;
     void setBaseUrl(const QString &baseUrl);
@@ -78,10 +81,14 @@ private:
     bool m_busy = false;
     QString m_loadingText;
     QString m_errorMessage;
-    QTimer m_launchStatusTimer;
-    QString m_pendingLaunchStatusPath;
-    QString m_pendingLaunchApplication;
-    int m_launchStatusChecks = 0;
+    struct LaunchSession {
+        LaunchedProcess process;
+        QString applicationName;
+        qint64 startedAt = 0;
+    };
+
+    QTimer m_launchProcessTimer;
+    QHash<QString, LaunchSession> m_launchSessions;
 
     void loadSettings();
     void saveServerAddress();
@@ -95,6 +102,8 @@ private:
     void setDisplayName(const QString &displayName);
     void setError(const QString &message);
     void handleUnauthorized(int statusCode);
+    void pollLaunchProcesses();
+    void clearLaunchSessions();
     QString normalizeServerAddressInput(const QString &serverAddressInput) const;
     QString serverAddressInputFromBaseUrl(const QString &baseUrl) const;
     QString serverAddressValidationError() const;

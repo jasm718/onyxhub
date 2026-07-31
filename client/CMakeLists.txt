@@ -115,4 +115,26 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME des-cipher-test COMMAND des-cipher-test)
+
+    qt_add_executable(application-model-test
+        tests/ApplicationModelTest.cpp
+        src/app/ApplicationModel.cpp
+        src/app/ApplicationModel.h
+    )
+
+    target_include_directories(application-model-test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    target_link_libraries(application-model-test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_custom_command(TARGET application-model-test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt6::Core>" "$<TARGET_FILE_DIR:application-model-test>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt6::Test>" "$<TARGET_FILE_DIR:application-model-test>"
+    )
+
+    add_test(NAME application-model-test COMMAND application-model-test)
 endif()

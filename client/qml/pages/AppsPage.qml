@@ -176,6 +176,7 @@ Item {
                                 appName: name
                                 appPath: path
                                 appIconSource: iconSource
+                                launchState: applicationLaunchState
                                 onLaunchRequested: ClientApp.launchApplication(appId)
                             }
                         }
