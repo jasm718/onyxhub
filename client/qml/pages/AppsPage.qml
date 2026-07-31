@@ -30,19 +30,13 @@ Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 72
 
-                    Rectangle {
+                    Image {
                         width: 38
                         height: 38
-                        radius: 8
                         anchors.centerIn: parent
-                        color: FluTheme.primaryColor
-
-                        FluIcon {
-                            anchors.centerIn: parent
-                            iconSource: FluentIcons.Remote
-                            iconSize: 20
-                            iconColor: "white"
-                        }
+                        source: "qrc:/OnyxHub/Client/assets/onyxhub-logo-256.png"
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
                     }
                 }
 

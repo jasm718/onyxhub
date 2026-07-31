@@ -3,6 +3,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
+#include <QIcon>
 
 #include "api/ApiClient.h"
 #include "app/ApplicationModel.h"
@@ -22,6 +23,7 @@ int main(int argc, char *argv[]) {
     QApplication::setApplicationVersion("0.1.0");
 
     QApplication app(argc, argv);
+    app.setWindowIcon(QIcon(QStringLiteral(":/OnyxHub/Client/assets/onyxhub.ico")));
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
 
     ApiClient apiClient;

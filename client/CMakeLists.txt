@@ -28,6 +28,7 @@ qt_add_executable(onyxhub-client
     src/security/DesCipher.h
     src/launcher/Launcher.cpp
     src/launcher/Launcher.h
+    assets/onyxhub.rc
 )
 
 qt_add_qml_module(onyxhub-client
@@ -43,6 +44,9 @@ qt_add_qml_module(onyxhub-client
     RESOURCES
         assets/login-landscape-bg.jpg
         assets/login-landscape-bg2.png
+        assets/onyxhub-logo.svg
+        assets/onyxhub-logo-256.png
+        assets/onyxhub.ico
 )
 
 target_include_directories(onyxhub-client PRIVATE

@@ -8,7 +8,6 @@ import {
   IconChartBar,
   IconHistory,
   IconKey,
-  IconLock,
   IconServer,
   IconSettings,
   IconShield,
@@ -94,8 +93,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="h-10 data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <Link href="/dashboard" className="flex items-center gap-2">
-                <div className="flex size-8 items-center justify-center rounded-md bg-primary">
-                  <IconLock className="size-5 text-primary-foreground" />
+                <div className="flex size-8 items-center justify-center rounded-md bg-white/90 p-0.5">
+                  <img src="/brand/onyxhub-logo-32.png" alt="OnyxHub" className="size-7" />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-base font-semibold">OnyxHub</span>

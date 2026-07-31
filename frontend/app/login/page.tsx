@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { IconLock, IconLogin2 } from "@tabler/icons-react"
+import { IconLogin2 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
 import {
@@ -59,8 +59,8 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm border-border/50 bg-card/80">
         <CardHeader className="space-y-3">
-          <div className="flex size-11 items-center justify-center rounded-lg bg-primary">
-            <IconLock className="size-6 text-primary-foreground" />
+          <div className="flex size-11 items-center justify-center rounded-lg bg-card">
+            <img src="/brand/onyxhub-logo-64.png" alt="OnyxHub" className="size-10" />
           </div>
           <div>
             <CardTitle>OnyxHub 管理后台</CardTitle>

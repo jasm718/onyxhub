@@ -41,18 +41,12 @@ Rectangle {
         }
         spacing: 8
 
-        Rectangle {
+        Image {
             Layout.preferredWidth: 20
             Layout.preferredHeight: 20
-            radius: 5
-            color: FluTheme.primaryColor
-
-            FluIcon {
-                anchors.centerIn: parent
-                iconSource: FluentIcons.Remote
-                iconSize: 12
-                iconColor: "white"
-            }
+            source: "qrc:/OnyxHub/Client/assets/onyxhub-logo-256.png"
+            fillMode: Image.PreserveAspectFit
+            smooth: true
         }
 
         FluText {

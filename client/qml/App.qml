@@ -34,6 +34,7 @@ FluWindow {
 
     Component.onCompleted: {
         FluApp.useSystemAppBar = false
+        FluApp.windowIcon = "qrc:/OnyxHub/Client/assets/onyxhub.ico"
         FluTheme.animationEnabled = true
     }
 

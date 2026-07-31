@@ -29,19 +29,13 @@ Item {
             anchors.margins: 28
             spacing: 14
 
-            Rectangle {
-                Layout.preferredWidth: 48
-                Layout.preferredHeight: 48
+            Image {
+                Layout.preferredWidth: 64
+                Layout.preferredHeight: 64
                 Layout.alignment: Qt.AlignHCenter
-                radius: 12
-                color: FluTheme.primaryColor
-
-                FluIcon {
-                    anchors.centerIn: parent
-                    iconSource: FluentIcons.Remote
-                    iconSize: 24
-                    iconColor: "white"
-                }
+                source: "qrc:/OnyxHub/Client/assets/onyxhub-logo-256.png"
+                fillMode: Image.PreserveAspectFit
+                smooth: true
             }
 
             FluText {
