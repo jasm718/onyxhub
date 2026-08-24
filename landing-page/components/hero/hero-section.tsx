@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion"
 import { IsometricScene } from "./isometric-scene"
-import { ArrowRight, Play } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 // Magnetic floating stat card with parallax
@@ -146,8 +146,7 @@ export function HeroSection() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              OnyxHub 以更先进的理念连接人与工作，让数据集中存储、不在终端落地，
-              在提升管理效率的同时，帮助企业减少硬件投入与长期成本。
+              一个虚拟应用分发与管理平台，提供多用户应用复用能力和数据分隔、集中存储能力
             </motion.p>
 
             {/* CTAs */}
@@ -163,14 +162,6 @@ export function HeroSection() {
               >
                 联系我们
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-border hover:bg-muted group bg-transparent transition-all hover:border-teal/30"
-              >
-                <Play className="mr-2 h-4 w-4" />
-                联系我们
               </Button>
             </motion.div>
 
@@ -200,8 +191,8 @@ export function HeroSection() {
                 ))}
               </div>
               <div className="text-sm text-muted-foreground">
-                <span className="font-semibold text-foreground">2,400+</span>{" "}
-                个团队正在关注
+                <span className="font-semibold text-foreground">50+</span>{" "}
+                个团队正在使用
               </div>
             </motion.div>
           </div>
@@ -219,7 +210,7 @@ export function HeroSection() {
               {/* Magnetic Floating stat cards with parallax */}
               <FloatingStatCard
                 position="top-left"
-                label="硬件成本"
+                label="软硬件成本"
                 value="-70%"
                 subtext="投入更可控"
                 color="teal"
@@ -228,9 +219,9 @@ export function HeroSection() {
 
               <FloatingStatCard
                 position="bottom-right"
-                label="数据管理"
-                value="集中"
-                subtext="终端不落地"
+                label="数据泄漏风险"
+                value="-50%"
+                subtext="数据更安全"
                 color="coral"
                 delay={1.8}
               />
