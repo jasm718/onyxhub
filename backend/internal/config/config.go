@@ -21,7 +21,12 @@ func Load() (Config, error) {
 		CORSAllowedOrigins: parseCSV(os.Getenv("ONYXHUB_CORS_ALLOWED_ORIGINS")),
 	}
 	if len(cfg.CORSAllowedOrigins) == 0 {
-		cfg.CORSAllowedOrigins = []string{"http://localhost:3000", "http://127.0.0.1:3000"}
+		cfg.CORSAllowedOrigins = []string{
+			"http://localhost:3000",
+			"http://127.0.0.1:3000",
+			"http://localhost:3001",
+			"http://127.0.0.1:3001",
+		}
 	}
 
 	if cfg.HTTPAddr == "" {

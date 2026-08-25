@@ -7,51 +7,51 @@ import { Zap, Shield, LineChart, Layers, Globe, Lock } from "lucide-react"
 const features = [
   {
     icon: Zap,
-    title: "数据集中存储",
-    description: "将业务数据统一沉淀在集中环境中，减少分散存储，让重要信息更容易管理与维护。",
+    title: "硬件投入更低",
+    description: "减少高性能工作站的重复采购，用更少的设备覆盖更多岗位，让预算投入更可控。",
     color: "teal",
-    stat: "集中",
-    statLabel: "统一沉淀"
+    stat: "-70%",
+    statLabel: "硬件成本"
   },
   {
     icon: Shield,
-    title: "终端不落地",
-    description: "数据不在终端设备留存，降低设备遗留信息带来的管理负担，让使用过程更加轻盈。",
+    title: "硬件资源利用率更高",
+    description: "让现有电脑承担更多应用场景，减少设备闲置和重复建设，释放已有硬件的价值。",
     color: "coral",
-    stat: "不落地",
-    statLabel: "轻量使用"
+    stat: "更高",
+    statLabel: "设备利用率"
   },
   {
     icon: LineChart,
-    title: "统一管控",
-    description: "围绕集中数据建立清晰的管理边界，让信息流转、使用与维护都更加有序。",
+    title: "应用复用效率更高",
+    description: "同一套应用可以分发给多个用户使用，减少重复部署和新增硬件采购。",
     color: "gold",
-    stat: "统一",
-    statLabel: "清晰可控"
+    stat: "分钟级",
+    statLabel: "快速启用"
   },
   {
     icon: Layers,
-    title: "减少设备投入",
-    description: "不再为每个使用场景重复配置高规格设备，以更合理的方式满足企业实际需求。",
+    title: "维护工作更少",
+    description: "减少逐台配置、排查和重复操作，让 IT 团队把时间投入到更重要的业务上。",
     color: "teal",
-    stat: "精简",
-    statLabel: "硬件投入"
+    stat: "更省",
+    statLabel: "运维时间"
   },
   {
     icon: Globe,
-    title: "提升资源利用率",
-    description: "让现有资源服务更多业务场景，减少闲置与重复建设，释放企业已有投入的价值。",
+    title: "协作体验更顺",
+    description: "团队使用一致的应用环境，减少版本差异带来的沟通成本，让协作更加稳定流畅。",
     color: "coral",
-    stat: "高效",
-    statLabel: "资源复用"
+    stat: "统一",
+    statLabel: "协作环境"
   },
   {
     icon: Lock,
-    title: "控制长期成本",
-    description: "从设备采购、维护到扩展，持续减少不必要的支出，让企业预算更可控、增长更从容。",
+    title: "数据安全更稳",
+    description: "重要数据集中管理且不在终端留存，减少泄漏风险，让企业更安心地开展业务。",
     color: "gold",
-    stat: "可控",
-    statLabel: "长期成本"
+    stat: "-50%",
+    statLabel: "泄漏风险"
   },
 ]
 
@@ -132,12 +132,10 @@ export function FeatureSection() {
             核心价值
           </span>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6 text-balance">
-            为每一次重要的{" "}
-            <span className="text-teal">突破而生</span>
+            让每一份投入都更有价值
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            从数据管理到资源投入，OnyxHub 聚焦企业最重要的现实问题：
-            让信息更集中，让成本更可控，让组织走向更高质量的增长。
+            从成本、效率到安全，OnyxHub 把产品能力转化为看得见、可持续的经营价值。
           </p>
         </motion.div>
 

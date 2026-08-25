@@ -8,7 +8,7 @@ env:
   ONYXHUB_HTTP_ADDR: '{{.ONYXHUB_HTTP_ADDR | default ":8080"}}'
   ONYXHUB_DB_PATH: '{{.ONYXHUB_DB_PATH | default "data/onyxhub.db"}}'
   ONYXHUB_JWT_SECRET: '{{.ONYXHUB_JWT_SECRET | default "dev-secret-change-me"}}'
-  ONYXHUB_CORS_ALLOWED_ORIGINS: '{{.ONYXHUB_CORS_ALLOWED_ORIGINS | default "http://localhost:3000,http://127.0.0.1:3000"}}'
+  ONYXHUB_CORS_ALLOWED_ORIGINS: '{{.ONYXHUB_CORS_ALLOWED_ORIGINS | default "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"}}'
 
 tasks:
   default:

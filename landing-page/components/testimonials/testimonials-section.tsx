@@ -28,10 +28,6 @@ const testimonials = [
   },
 ]
 
-const logos = [
-  "远见科技", "新域实验室", "知行数据", "云启网络", "未来创投", "增长引擎"
-]
-
 export function TestimonialsSection() {
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, margin: "-100px" })
@@ -97,30 +93,6 @@ export function TestimonialsSection() {
           ))}
         </div>
 
-        {/* Logo cloud */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="text-center"
-        >
-          <p className="text-sm text-muted-foreground mb-8">
-            与每一个相信长期价值的团队同行
-          </p>
-          <div className="flex flex-wrap justify-center items-center gap-8 lg:gap-16">
-            {logos.map((logo, index) => (
-              <motion.div
-                key={logo}
-                initial={{ opacity: 0 }}
-                animate={isInView ? { opacity: 1 } : { opacity: 0 }}
-                transition={{ duration: 0.4, delay: 0.5 + index * 0.1 }}
-                className="text-xl font-bold text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
-              >
-                {logo}
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
       </div>
     </section>
   )
