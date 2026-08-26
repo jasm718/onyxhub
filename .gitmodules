@@ -1,0 +1,3 @@
+[submodule "client/third_party/FluentUI"]
+	path = client/third_party/FluentUI
+	url = https://github.com/zhuzichu520/FluentUI.git
