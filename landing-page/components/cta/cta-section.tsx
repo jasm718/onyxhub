@@ -55,7 +55,7 @@ export function CTASection() {
                 alt="OnyxHub 联系方式二维码"
                 className="size-36 rounded-xl bg-white p-2 shadow-lg sm:size-40"
               />
-              <span className="text-sm text-background/70">企业微信扫码添加，获取演示、demo和报价</span>
+              <span className="text-sm text-background/70">微信扫码添加，获取更多资料</span>
             </motion.div>
 
             {/* Trust badges */}
