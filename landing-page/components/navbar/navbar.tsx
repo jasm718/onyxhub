@@ -7,11 +7,10 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const navLinks = [
-  { label: "产品理念", href: "#" },
-  { label: "核心价值", href: "#" },
-  { label: "品牌故事", href: "#" },
-  { label: "客户声音", href: "#" },
-  { label: "关于 OnyxHub", href: "#" },
+  { label: "核心挑战", href: "#product-solution" },
+  { label: "核心价值", href: "#core-values" },
+  { label: "客户评价", href: "#testimonials" },
+  { label: "联系我们", href: "#contact" },
 ]
 
 export function Navbar() {
@@ -63,11 +62,10 @@ export function Navbar() {
 
             {/* Desktop CTAs */}
             <div className="hidden lg:flex items-center gap-4">
-              <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
+              <Button asChild className="bg-foreground text-background hover:bg-foreground/90">
+                <a href="#contact">
                 联系我们
-              </Button>
-              <Button className="bg-foreground text-background hover:bg-foreground/90">
-                联系我们
+                </a>
               </Button>
             </div>
 
@@ -107,11 +105,10 @@ export function Navbar() {
                 ))}
               </nav>
               <div className="flex flex-col gap-4 mt-8">
-                <Button variant="outline" className="w-full justify-center bg-transparent">
+                <Button asChild className="w-full justify-center bg-foreground text-background">
+                  <a href="#contact">
                   联系我们
-                </Button>
-                <Button className="w-full justify-center bg-foreground text-background">
-                  联系我们
+                  </a>
                 </Button>
               </div>
             </div>

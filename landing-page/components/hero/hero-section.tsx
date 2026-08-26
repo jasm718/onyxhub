@@ -119,7 +119,7 @@ export function HeroSection() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-teal" />
                 </span>
-                面向未来的智能工作平台
+                下一代虚拟应用分发平台
               </span>
             </motion.div>
 
@@ -157,11 +157,14 @@ export function HeroSection() {
               transition={{ duration: 0.6, delay: 0.3 }}
             >
               <Button
+                asChild
                 size="lg"
                 className="bg-foreground text-background hover:bg-foreground/90 group px-8 shadow-lg shadow-foreground/10 transition-all hover:shadow-xl hover:shadow-foreground/15"
               >
-                联系我们
+                <a href="#contact">
+                  获取演示和报价
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </a>
               </Button>
             </motion.div>
 
@@ -173,12 +176,7 @@ export function HeroSection() {
               transition={{ duration: 0.6, delay: 0.5 }}
             >
               <div className="flex -space-x-2">
-                {[
-                  "bg-coral",
-                  "bg-teal",
-                  "bg-gold",
-                  "bg-foreground",
-                ].map((color, i) => (
+                {[["bg-coral", "科"], ["bg-teal", "上"], ["bg-gold", "新"], ["bg-foreground", "中"]].map(([color, label], i) => (
                   <motion.div
                     key={i}
                     className={`w-8 h-8 rounded-full ${color} border-2 border-background flex items-center justify-center text-xs font-medium text-background shadow-sm`}
@@ -186,7 +184,7 @@ export function HeroSection() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.6 + i * 0.1, type: "spring" }}
                   >
-                    {String.fromCharCode(65 + i)}
+                    {label}
                   </motion.div>
                 ))}
               </div>

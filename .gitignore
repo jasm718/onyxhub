@@ -44,3 +44,6 @@ client/build/
 client/out/
 client/dist/
 client/runtime/
+
+# Local Netlify folder
+.netlify

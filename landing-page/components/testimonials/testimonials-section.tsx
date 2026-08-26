@@ -6,23 +6,23 @@ import { Star } from "lucide-react"
 
 const testimonials = [
   {
-    quote: "OnyxHub 让我们重新思考了效率与协作，过去需要反复沟通的事情，现在变得清晰而顺畅。",
-    author: "陈女士",
-    role: "某科技企业负责人",
+    quote: "我们使用OnyxHub，将一台原有的高配置电脑给7-8个人使用，专门运行大型设计软件，节省了不少成本。",
+    author: "陈先生",
+    role: "上海某企业IT维护部门负责人",
     avatar: "陈",
     color: "bg-teal",
   },
   {
-    quote: "真正优秀的产品，不只是解决问题，更让团队拥有持续向前的信心。",
+    quote: "虚拟应用的体验感跟原生应用区别不大，且能够将图纸统一存放，配合原有已有的加密软件效果可以的。",
     author: "李先生",
-    role: "某创新企业产品负责人",
+    role: "杭州某设计院IT运维主管",
     avatar: "李",
     color: "bg-coral",
   },
   {
-    quote: "从第一眼接触到长期使用，OnyxHub 始终保持着克制、稳定与高级感。",
+    quote: "出差时候也能用到公司的高性能工作站，再也不需要用笔记本画图了",
     author: "王女士",
-    role: "某大型组织运营负责人",
+    role: "合肥某芯片设计制造企业员工",
     avatar: "王",
     color: "bg-gold",
   },
@@ -33,7 +33,7 @@ export function TestimonialsSection() {
   const isInView = useInView(ref, { once: true, margin: "-100px" })
 
   return (
-    <section ref={ref} className="py-24 lg:py-32 bg-muted/30 relative overflow-hidden">
+    <section id="testimonials" ref={ref} className="scroll-mt-20 py-24 lg:py-32 bg-muted/30 relative overflow-hidden">
       {/* Subtle background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-teal/5 via-transparent to-coral/5" />
 

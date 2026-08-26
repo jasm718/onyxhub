@@ -1,0 +1,4 @@
+[build]
+  base = "landing-page"
+  command = "pnpm run build"
+  publish = ".next"
